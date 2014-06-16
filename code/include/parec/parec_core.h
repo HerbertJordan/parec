@@ -78,7 +78,7 @@ namespace parec {
 		if (bc_test(in)) return std::async(base, in);
 
 		// compute the step case
-		return std::async((detail::pickRandom(step,as...)), in, [&](I x) { return prec(x, bc_test, base, step /*,as...*/); });
+		return std::async((detail::pickRandom(step,as...)), in, [=](I x) { return prec(x, bc_test, base, step /*,as...*/); });
 	}
 
 
