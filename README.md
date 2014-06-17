@@ -7,5 +7,5 @@ A utility set of recursive algorithms and data structures, including degraded ca
 mkdir build
 cd build
 LIBS_HOME=~/libs cmake <path to local repo>
-make -j && make test
+make -j && make test && make valgrind
 ```
