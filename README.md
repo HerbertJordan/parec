@@ -1,8 +1,7 @@
-# An empty C++ project setup 
-This project covered a basic setup for small C++ projects including a CMake configuration and Google-Test setup.
+# A C++ parallel library for recursive algorithms and data structures
+A utility set of recursive algorithms and data structures, including degraded cases like list for building composable, parallel applications.
 
-## How to User
-Simply run
+## How to Build
 
 ```
 mkdir build
