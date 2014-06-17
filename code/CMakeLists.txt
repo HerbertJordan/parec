@@ -1,7 +1,7 @@
 #
 # Builds the insieme core library
 #
-project(empty CXX)
+project(parec CXX)
 
 include(cmake/environment.cmake)
 
