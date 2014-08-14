@@ -62,13 +62,13 @@ namespace parec {
 			 */
 			node* copy() const {
 				return prec(
-					isLeaf(),
-					constValue<node*,const node*>(nullptr),
-					[](const node* n, const typename prec_fun<node*(const node*)>::type& f)->node* {
-						auto l = f(n->l);
-						auto r = f(n->r);
-						return new node(n->value, l.get(), r.get());
-					}
+						[](const node* node)->bool { return !node; },
+						[](const node*)->node* { return nullptr; },
+						[](const node* n, const typename prec_fun<node*(const node*)>::type& f)->node* {
+							auto l = f(n->l);
+							auto r = f(n->r);
+							return new node(n->value, l.get(), r.get());
+						}
 				)(this).get();
 			}
 
@@ -78,13 +78,13 @@ namespace parec {
 			std::size_t size() const {
 				// implemented using the generic parallel recursive operator
 				return prec(
-					isLeaf(),
-					constValue<std::size_t,const node*>(0),
-					[](const node* n, const typename prec_fun<std::size_t(const node*)>::type& f)->std::size_t {
-						auto a = f(n->l);
-						auto b = f(n->r);
-						return 1 + a.get() + b.get();
-					}
+						[](const node* node)->bool { return !node; },
+						[](const node*)->std::size_t { return 0; },
+						[](const node* n, const typename prec_fun<std::size_t(const node*)>::type& f)->std::size_t {
+							auto a = f(n->l);
+							auto b = f(n->r);
+							return 1 + a.get() + b.get();
+						}
 				)(this).get();
 			}
 
@@ -157,7 +157,7 @@ namespace parec {
 			node* insert(node* other) {
 				typedef std::pair<node*,node*> pair;
 
-				return prec<pair,node*>(
+				return prec(
 						[](pair cur)->bool { return !cur.first || !cur.second; },
 						[](pair cur)->node* { return (cur.first) ? cur.first : cur.second ; },
 						[](pair cur, const typename prec_fun<node*(pair)>::type& f)->node* {

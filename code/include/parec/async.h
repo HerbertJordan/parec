@@ -17,11 +17,11 @@ namespace parec {
 		typedef typename std::result_of<Function()>::type res_type;
 		typedef typename prec_fun<res_type(empty)>::type fun_type;
 		// maps the operation to a recursion
-		return prec(fun(
+		return prec(
 				[](empty)->bool { return true; },
 				[=](empty)->res_type { return f(); },
 				[](empty, const fun_type&)->res_type { return res_type(); }
-		))(empty());
+		)(empty());
 	}
 
 
