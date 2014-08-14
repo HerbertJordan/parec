@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <future>
 
-#include "parec/parec_core.h"
+#include "parec/core.h"
 
 namespace parec {
 
@@ -15,14 +15,13 @@ namespace parec {
 	async(const Function& f ) {
 		struct empty {};
 		typedef typename std::result_of<Function()>::type res_type;
-
+		typedef typename prec_fun<res_type(empty)>::type fun_type;
 		// maps the operation to a recursion
-		return prec<empty,res_type>(
-				empty(),
+		return prec(fun(
 				[](empty)->bool { return true; },
 				[=](empty)->res_type { return f(); },
-				[](empty, const typename prec_fun<res_type(empty)>::type&)->res_type { return res_type(); }
-		);
+				[](empty, const fun_type&)->res_type { return res_type(); }
+		))(empty());
 	}
 
 

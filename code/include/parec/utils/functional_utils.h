@@ -25,6 +25,28 @@ namespace parec {
 	};
 
 
+	template <typename ... Ts>
+	struct size_of;
+
+	template <typename ... Ts>
+	struct size_of<type_list<Ts...>> {
+		enum { value = sizeof...(Ts) };
+	};
+
+
+	template<unsigned pos, typename L>
+	struct type_at;
+
+	template<typename H, typename ...R>
+	struct type_at<0, type_list<H,R...>> {
+		typedef H type;
+	};
+
+	template<unsigned pos, typename H, typename ...R>
+	struct type_at<pos, type_list<H,R...>> {
+		typedef typename type_at<pos-1, type_list<R...>>::type type;
+	};
+
 	// -------------------- Function Traits for Lambdas ----------------------------
 
 	namespace detail {
@@ -109,5 +131,19 @@ namespace parec {
 
 	template<typename R, typename C, typename ... P>
 	struct lambda_traits<R(C::* const)(P...)> : public lambda_traits<R(C::*)(P...)> { };
+
+
+
+	template<typename T>
+	struct is_std_function : public std::false_type {};
+
+	template<typename E>
+	struct is_std_function<std::function<E>> : public std::true_type {};
+
+	template<typename T>
+	struct is_std_function<const T> : public is_std_function<T> {};
+
+	template<typename T>
+	struct is_std_function<T&> : public is_std_function<T> {};
 
 } // end namespace parec

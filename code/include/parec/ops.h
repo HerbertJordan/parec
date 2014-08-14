@@ -5,7 +5,7 @@
 #include <future>
 #include <mutex>
 
-#include "parec/parec_core.h"
+#include "parec/core.h"
 
 namespace parec {
 
@@ -18,8 +18,7 @@ namespace parec {
 	void pfor(const Iter& a, const Iter& b, Op& op) {
 		// implements a binary splitting policy for iterating over the given iterator range
 		typedef std::pair<Iter,Iter> range;
-		prec<range,void>(
-			range(a,b),
+		prec(
 			[](const range& r) {
 				return std::distance(r.first,r.second) <= 1;
 			},
@@ -34,7 +33,7 @@ namespace parec {
 				auto b = f(range(mid, r.second));
 				a.get(); b.get();		// sync futures (also automated by destructor)
 			}
-		).get();
+		)(range(a,b)).get();
 	}
 
 	/**
@@ -65,8 +64,7 @@ namespace parec {
 
 		// implements a binary splitting policy for iterating over the given iterator range
 		typedef std::pair<Iter,Iter> range;
-		return prec<range,res_type>(
-			range(a,b),
+		return prec(
 			[](const range& r) {
 				return std::distance(r.first,r.second) <= 1;
 			},
@@ -81,7 +79,7 @@ namespace parec {
 				auto b = f(range(mid, r.second));
 				return op(a.get(), b.get());
 			}
-		).get();
+		)(range(a,b)).get();
 	}
 
 	/**

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "parec/parec.h"
+#include "parec/ops.h"
 
 namespace parec {
 

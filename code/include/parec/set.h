@@ -3,7 +3,7 @@
 #include <iostream>
 #include <utility>
 
-#include "parec/parec_core.h"
+#include "parec/core.h"
 #include "parec/async.h"
 
 namespace parec {
@@ -16,16 +16,15 @@ namespace parec {
 	};
 
 
-	template<typename T>
+	template<typename O, typename I>
 	struct const_value {
-		T value;
-		const_value(const T& v) : value(v) {}
-		template<typename N>
-		const T& operator()(const N&) const { return value; }
+		O value;
+		const_value(const O& v) : value(v) {}
+		const O& operator()(const I&) const { return value; }
 	};
 
-	template<typename T>
-	const_value<T> constValue(const T& v) { return const_value<T>(v); }
+	template<typename O, typename I>
+	const_value<O,I> constValue(const O& v) { return const_value<O,I>(v); }
 
 
 
@@ -62,16 +61,15 @@ namespace parec {
 			 * Creates a deep-copy of this node -- ownership is passed on to the caller.
 			 */
 			node* copy() const {
-				return prec<const node*, node*>(
-					this,
+				return prec(
 					isLeaf(),
-					constValue<node*>(nullptr),
+					constValue<node*,const node*>(nullptr),
 					[](const node* n, const typename prec_fun<node*(const node*)>::type& f)->node* {
 						auto l = f(n->l);
 						auto r = f(n->r);
 						return new node(n->value, l.get(), r.get());
 					}
-				).get();
+				)(this).get();
 			}
 
 			/**
@@ -79,16 +77,15 @@ namespace parec {
 			 */
 			std::size_t size() const {
 				// implemented using the generic parallel recursive operator
-				return prec<const node*,std::size_t>(
-					this,
+				return prec(
 					isLeaf(),
-					constValue<std::size_t>(0),
+					constValue<std::size_t,const node*>(0),
 					[](const node* n, const typename prec_fun<std::size_t(const node*)>::type& f)->std::size_t {
 						auto a = f(n->l);
 						auto b = f(n->r);
 						return 1 + a.get() + b.get();
 					}
-				).get();
+				)(this).get();
 			}
 
 			/**
@@ -96,14 +93,13 @@ namespace parec {
 			 */
 			bool contains(const T& value) const {
 				// compute recursively use common operator
-				return prec<const node*,bool>(
-						this,
+				return prec(
 						[&](const node* cur)->bool { return !cur || cur->value == value; },
 						[](const node* cur)->bool { return cur; },
 						[&](const node* cur, const typename prec_fun<bool(const node*)>::type& f)->bool {
 							return (cur->value < value) ? f(cur->r).get() : f(cur->l).get();
 						}
-				).get();
+				)(this).get();
 			}
 
 			/**
@@ -112,8 +108,7 @@ namespace parec {
 			bool containsAll(const node* other) const {
 				typedef std::pair<const node*,const node*> pair;
 
-				return prec<pair,bool>(
-						pair(this, other),
+				return prec(
 						[](pair p) { return !p.first || !p.second; },
 						[](pair p) { return !p.second; },
 						[](pair p, const typename prec_fun<bool(pair)>::type& f)->bool {
@@ -152,7 +147,7 @@ namespace parec {
 							);
 
 						}
-				).get();
+				)(pair(this, other)).get();
 
 			}
 
@@ -163,7 +158,6 @@ namespace parec {
 				typedef std::pair<node*,node*> pair;
 
 				return prec<pair,node*>(
-						pair(this, other),
 						[](pair cur)->bool { return !cur.first || !cur.second; },
 						[](pair cur)->node* { return (cur.first) ? cur.first : cur.second ; },
 						[](pair cur, const typename prec_fun<node*(pair)>::type& f)->node* {
@@ -213,7 +207,7 @@ namespace parec {
 							x->r = r.get();
 							return x;
 						}
-				).get();
+				)(pair(this, other)).get();
 			}
 
 			/**
