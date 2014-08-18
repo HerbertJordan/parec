@@ -116,50 +116,41 @@ namespace parec {
 
 			typedef typename prec_fun<void(const param_type&)>::type solver;
 
+			auto test = [](const param_type& param)->bool {
+				return param.r - param.l < 2;
+			};
+
+			auto base = [&](const param_type& param)->void {
+				auto N = param.a->size();
+				for(int i=param.l; i<= param.r; i++) {
+					std::cout << "  - Update: " << i%N << " @ " << param.t << "\n";
+					update(param.t,i%N,*param.a,*param.b);
+				}
+			};
+
 			auto def = group(
 					fun(
-						[](const param_type& param)->bool {
-							return param.r - param.l < 4;
-						},
-						[&](const param_type& param)->void {
-
-							std::cout << "Base-A: " << param.l << "-" << param.r << " @ " << param.t << "\n";
-
-							if (param.t >= steps) return;
-
-							auto N = param.a->size();
-							for(int i=param.l+1; i < param.r; i++) {
-								std::cout << "      - Updating: " << i%N  << " - " << param.t << "\n";
-								update(param.t,i%N,*param.a,*param.b);
-							}
-						},
+						test, base,
 						[](const param_type& param, const solver& up, const solver& down)->void {
 
 							auto l = param.l;
 							auto r = param.r;
 
 							auto d = r - l + 1;
-							auto a = l + d/4;
 							auto hl = l + d/2 - (1-d%2);
 							auto hr = l + d/2;
-							auto b = l + (3*d)/4;
+
+							auto al = l + d/4 + 1;
+							auto ar = r - d/4 - 1;
 
 							auto t = param.t;
 							auto th = t + d/4;
 
-							auto odd = (d/2)%2;
-
-							auto vl = a+odd;
-							auto vr = b-odd;
-
 							std::cout << "Step-A: " << param.l << "-" << param.r << " @ " << param.t << "\n";
-							std::cout << "   - Split: " << l << "-" << hl << " vs. " << hr << "-" << r << "\n";
-							std::cout << "   - Cut:   " << a << "-" << b << "\n";
-
 							std::cout << "     - A: " << l << "-" << hl << " / " << t <<  "\n";
 							std::cout << "     - A: " << hr << "-" << r << " / " << t << "\n";
-							std::cout << "     - V: " << vl << "-" << vr << " / " << t << "\n";
-							std::cout << "     - A: " << a << "-" << b << " / " << th << "\n";
+							std::cout << "     - V: " << al << "-" << ar << " / " << t << "\n";
+							std::cout << "     - A: " << al << "-" << ar << " / " << th << "\n";
 
 //							std::cout << "Step-Up: " << l << "/" << a << "/" << h << "/" << b << "/" << r << " - " << param.t << "/" << th << "\n";
 
@@ -171,51 +162,28 @@ namespace parec {
 									up(param_type(A,M,l,hl,t)),
 									up(param_type(A,M,hr,r,t))
 							);
-							down(param_type(A,M,vl,vr,t)).get();
-							up(param_type(M,B,a,b,th)).get();
+							down(param_type(A,M,al,ar,t)).get();
+							up(param_type(M,B,al,ar,th)).get();
 						}
 					),
 					fun(
-						[](const param_type& param)->bool {
-							return param.r - param.l < 4;
-						},
-						[&](const param_type& param)->void {
-
-							std::cout << "Base-V: " << param.l << "-" << param.r << " @ " << param.t << "\n";
-
-
-							if (param.t >= steps) return;
-
-							auto N = param.a->size();
-							for(int i=param.l+1; i < param.r; i++) {
-								std::cout << "      - Updating: " << i%N  << " - " << param.t << "\n";
-								update(param.t,i%N,*param.a,*param.b);
-							}
-						},
+						test, base,
 						[](const param_type& param, const solver& up, const solver& down)->void {
 							auto l = param.l;
 							auto r = param.r;
 
 							auto d = r - l + 1;
-							auto a = l + d/4 + (1-d%2);
-							auto hl = l + d/2;
-							auto hr = l + d/2 + (1-d%2);
-							auto b = l + (3*d)/4;
+							auto hl = l + d/2 - (1-d%2);
+							auto hr = l + d/2;
+
+							auto al = l + d/4 + 1;
+							auto ar = r - d/4 - 1;
 
 							auto t = param.t;
-							auto th = t + d/2 -1;
-
-							auto odd = (d/2)%2;
-							auto al = a+odd;
-							auto ar = b-odd;
+							auto th = t + d/4;
 
 							std::cout << "Step-V: " << param.l << "-" << param.r << " @ " << param.t << "\n";
-							std::cout << "   - Split: " << l << "-" << hl << " vs. " << hr << "-" << r << "\n";
-							std::cout << "   - Cut:   " << a << "-" << b << "\n";
-//							std::cout << "Step-Do: " << l << "/" << a << "/" << h << "/" << b << "/" << r << " - " << param.t << "/" << th << "\n";
-
-
-							std::cout << "     - V: " << a << "-" << b << " / " << t <<  "\n";
+							std::cout << "     - V: " << al << "-" << ar << " / " << t <<  "\n";
 							std::cout << "     - A: " << al << "-" << ar << " / " << th <<  "\n";
 							std::cout << "     - V: " << l << "-" << hl << " / " << th <<  "\n";
 							std::cout << "     - V: " << hr << "-" << r << " / " << th <<  "\n";
@@ -225,7 +193,7 @@ namespace parec {
 							Container* B = param.b;
 							Container* M = (d%2) ? B : A;
 
-							down(param_type(A,M,a,b,t)).get();
+							down(param_type(A,M,al,ar,t)).get();
 							up(param_type(M,B,al,ar,th)).get();
 							parallel(
 									down(param_type(M,B,l,hl,th)),
