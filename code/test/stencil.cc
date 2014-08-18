@@ -42,4 +42,47 @@ namespace parec {
 
 	}
 
+	TEST(Sets, Comparison) {
+
+		typedef array<float,10> Field;
+
+		// create an array
+		Field A;
+
+		// init the array
+		pfor(A.begin(), A.end(), [](float& a) { a = 0; });
+		A[10] = 5;
+
+		// create 3 copies
+		Field As = A;
+		Field Ai = A;
+		Field Ar = A;
+
+//		auto update = [](int , int i, const Field& A, Field& B) {
+//			// get size of field
+//			int N = std::tuple_size<Field>::value;
+//
+//			// handle rest
+//			B[i] = (A[(i+N-1)%N] + A[i] + A[(i+1) % N]) / 3;
+//		};
+
+//		auto update = [](int t, int i, const Field& , Field& B) {
+//			B[i] = t;
+//		};
+
+		auto update = [](int, int i, const Field& A, Field& B) {
+			B[i] = A[i]+1;
+		};
+
+		auto t = std::tuple_size<Field>::value/2;
+
+		// apply different stencils (todo: in parallel)
+		detail::stencil_seq(As, t, update);
+		detail::stencil_iter(Ai, t, update);
+		detail::stencil_rec(Ar, t, update);
+
+		EXPECT_EQ(As, Ai);
+		EXPECT_EQ(As, Ar);
+	}
+
 } // end namespace parec
