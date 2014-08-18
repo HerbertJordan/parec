@@ -6,6 +6,7 @@
 #include <mutex>
 
 #include "parec/core.h"
+#include "parec/utils/sequence.h"
 
 namespace parec {
 
@@ -15,7 +16,7 @@ namespace parec {
 	 * A parallel for-each implementation iterating over the given range of elements.
 	 */
 	template<typename Iter, typename Op>
-	void pfor(const Iter& a, const Iter& b, Op& op) {
+	void pfor(Iter a, Iter b, const Op& op) {
 		// implements a binary splitting policy for iterating over the given iterator range
 		typedef std::pair<Iter,Iter> range;
 		prec(
@@ -40,7 +41,7 @@ namespace parec {
 	 * A parallel for-each implementation iterating over the elements of the given container.
 	 */
 	template<typename Container, typename Op>
-	void pfor(Container& c, Op& op) {
+	void pfor(Container& c, const Op& op) {
 		pfor(c.begin(), c.end(), op);
 	}
 
@@ -51,8 +52,6 @@ namespace parec {
 	void pfor(const Container& c, const Op& op) {
 		pfor(c.begin(), c.end(), op);
 	}
-
-
 
 
 	// ----- reduction ------
