@@ -46,7 +46,7 @@ namespace parec {
 
 			for(int t=0; t<steps; t++) {
 
-				for(int i=0; i<a.size(); i++) {
+				for(std::size_t i=0; i<a.size(); i++) {
 					(*y)[i] = update(t,i,*x);
 				}
 
