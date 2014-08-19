@@ -49,7 +49,7 @@ namespace parec {
 			for(int t=0; t<steps; t++) {
 
 				for(int i=0; i<a.size(); i++) {
-					update(t,i,*x,*y);
+					(*y)[i] = update(t,i,*x);
 				}
 
 //				std::cout << *y << "\n";
@@ -81,7 +81,7 @@ namespace parec {
 
 				// conduct update step in parallel
 				pfor(utils::seq(0ul,a.size()),[&](int i){
-					update(t,i,*x,*y);
+					(*y)[i] = update(t,i,*x);
 				});
 
 //				std::cout << *y << "\n";
@@ -132,7 +132,7 @@ namespace parec {
 				auto b = (t%2) ? param.b : param.a;
 
 				for(int i=param.l; i<= param.r; i++) {
-					update(param.t,i%N,*a,*b);
+					(*b)[i%N] = update(param.t,i%N,*a);
 //					std::cout << "  - Update: " << i%N << " @ " << param.t << "  from " << a << "=>" << b << " ... "<< (*a)[i%N] << " to " << (*b)[i%N] << "\n";
 				}
 			};

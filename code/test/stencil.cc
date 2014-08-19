@@ -26,15 +26,11 @@ namespace parec {
 //		std::cout << A << "\n";
 
 		// run a stencil
-		stencil(A, 200, [](int , int i, const Field& A, Field& B) {
+		stencil(A, 200, [](int , int i, const Field& A)->float {
 			// get size of field
 			int N = std::tuple_size<Field>::value;
-
-			// handle boundaries (alternative)
-//			if (i == 0 || i == N-1) return;
-
-			// handle rest
-			B[i] = (A[(i+N-1)%N] + A[i] + A[(i+1) % N]) / 3;
+			// compute updated value
+			return (A[(i+N-1)%N] + A[i] + A[(i+1) % N]) / 3;
 		});
 
 //		std::cout << A << "\n";
@@ -61,14 +57,10 @@ namespace parec {
 			Field Ai = A;
 			Field Ar = A;
 
-			auto update = [](int t, int i, const Field& A, Field& B) {
+			auto update = [](int t, int i, const Field& A)->int {
 				EXPECT_EQ(t,A[i]) << "Time step " << t << " field " << i;
-				B[i] = A[i]+1;
+				return A[i]+1;
 			};
-
-//			auto update = [](int, int i, const Field& A, Field& B) {
-//				B[i] = A[i]+1;
-//			};
 
 			auto t = steps;
 
