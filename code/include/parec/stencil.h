@@ -126,7 +126,7 @@ namespace parec {
 
 				auto t = param.t;
 
-				if (t > steps) return;
+				if (t >= steps) return;
 
 				auto a = (t%2) ? param.a : param.b;
 				auto b = (t%2) ? param.b : param.a;
@@ -156,7 +156,7 @@ namespace parec {
 							auto br = r - d/4 - ((d/2)%2);
 
 							auto t = param.t;
-							auto ta = t + d/4 - 1;
+							auto ta = t + (d-2)/4;
 							auto tb = ta + 1;
 
 //							std::cout << "Step-A: " << param.l << "-" << param.r << " @ " << param.t << "\n";
@@ -196,12 +196,12 @@ namespace parec {
 							auto br = r - d/4 - ((d/2)%2);
 
 							auto t = param.t;
-							auto ta = t - d/4 ;
-							auto tb = ta + 1;
+							auto ta = t - (d-2)/4;
+							auto tb = ta - 1;
 
 //							std::cout << "Step-V: " << param.l << "-" << param.r << " @ " << param.t << "\n";
-//							std::cout << "     - V: " << bl << "-" << br << " / " << ta <<  "\n";
-//							std::cout << "     - A: " << al << "-" << ar << " / " << tb <<  "\n";
+//							std::cout << "     - V: " << bl << "-" << br << " / " << tb <<  "\n";
+//							std::cout << "     - A: " << al << "-" << ar << " / " << ta <<  "\n";
 //							std::cout << "     - V: " << l << "-" << hl << " / " << t <<  "\n";
 //							std::cout << "     - V: " << hr << "-" << r << " / " << t <<  "\n";
 
@@ -209,8 +209,8 @@ namespace parec {
 							Container* A = param.a;
 							Container* B = param.b;
 
-							down(param_type(A,B,bl,br,ta)).get();
-							up(param_type(A,B,al,ar,tb)).get();
+							down(param_type(A,B,bl,br,tb)).get();
+							up(param_type(A,B,al,ar,ta)).get();
 							parallel(
 									down(param_type(A,B,l,hl,t)),
 									down(param_type(A,B,hr,r,t))
@@ -224,20 +224,33 @@ namespace parec {
 
 			// process layer by layer
 			auto N = a.size();
-			auto h = N/2 - 1;
+			auto h = N/2 + N%2;
+
+			auto ul = 0;
+			auto ur = N-1;
+			auto dl = h + (1-N%2);
+			auto dr = h + N - 2;
+
+			if (h < 1) {
+				stencil_iter(a, steps, update);
+				return;
+			}
+
+//			std::cout << "Big-Split: " << N << " => " << ul << "-" << ur << " / " << dl << "-" << dr << "\n";
+//
+//			std::cout << "Step size: " << h << "\n";
 			auto b = a;
 			for(int i=0; i<=steps; i+=h) {
 
-//				std::cout << " -- step: " << i << "\n";
 //				std::cout << " - up - \n";
-				s_u(param_type(&a,&b,1,N-2,i+1)).get();
+				s_u(param_type(&a,&b,ul,ur,i)).get();
 //				std::cout << " - down - \n";
-				s_d(param_type(&a,&b,h+2,h+N-1,i+h)).get();
+				s_d(param_type(&a,&b,dl,dr,i+h-1)).get();
 
 			}
 
 			// fix result
-			if (steps%2) a = b;
+			if (steps%2==0) a = b;
 		}
 
 	} // end namespace detail
