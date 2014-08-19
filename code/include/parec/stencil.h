@@ -27,9 +27,7 @@ namespace parec {
 		typename Stencil
 	>
 	void stencil(Container& a, int steps, const Stencil& update) {
-//		detail::stencil_seq(a,steps,update);
-		detail::stencil_iter(a,steps,update);
-//		detail::stencil_rec(a,steps,update);
+		detail::stencil_rec(a,steps,update);
 	}
 
 
@@ -51,8 +49,6 @@ namespace parec {
 				for(int i=0; i<a.size(); i++) {
 					(*y)[i] = update(t,i,*x);
 				}
-
-//				std::cout << *y << "\n";
 
 				// switch buffers
 				auto h = x;
@@ -83,8 +79,6 @@ namespace parec {
 				pfor(utils::seq(0ul,a.size()),[&](int i){
 					(*y)[i] = update(t,i,*x);
 				});
-
-//				std::cout << *y << "\n";
 
 				// switch buffers
 				auto h = x;
@@ -165,8 +159,6 @@ namespace parec {
 //							std::cout << "     - V: " << al << "-" << ar << " / " << ta << "\n";
 //							std::cout << "     - A: " << bl << "-" << br << " / " << tb << "\n";
 
-//							std::cout << "Step-Up: " << l << "/" << a << "/" << h << "/" << b << "/" << r << " - " << param.t << "/" << th << "\n";
-
 							Container* A = param.a;
 							Container* B = param.b;
 
@@ -205,7 +197,6 @@ namespace parec {
 //							std::cout << "     - V: " << l << "-" << hl << " / " << t <<  "\n";
 //							std::cout << "     - V: " << hr << "-" << r << " / " << t <<  "\n";
 
-
 							Container* A = param.a;
 							Container* B = param.b;
 
@@ -236,17 +227,10 @@ namespace parec {
 				return;
 			}
 
-//			std::cout << "Big-Split: " << N << " => " << ul << "-" << ur << " / " << dl << "-" << dr << "\n";
-//
-//			std::cout << "Step size: " << h << "\n";
 			auto b = a;
 			for(int i=0; i<=steps; i+=h) {
-
-//				std::cout << " - up - \n";
 				s_u(param_type(&a,&b,ul,ur,i)).get();
-//				std::cout << " - down - \n";
 				s_d(param_type(&a,&b,dl,dr,i+h-1)).get();
-
 			}
 
 			// fix result
