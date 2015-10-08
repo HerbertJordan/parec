@@ -47,13 +47,8 @@ if (NOT third_part_libs_home )
 	endif()
 endif()
 
-# lookup Google Test libraries
-lookup_lib ( GTEST gtest )
-lookup_lib ( GTEST_MAIN gtest_main )
-
 # lookup pthread library
 find_library(pthread_lib pthread)
-
 
 # ------------------------------------------------------------- configuration for platforms
 
@@ -88,16 +83,15 @@ if (CMAKE_COMPILER_IS_GNUCXX)
 		message( "WARNING: --std=c++0x not supported by your compiler!" )
 	endif()
 
-	# add project version definition (add_definitions escapes back-quotes)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPROJECT_VERSION=\"\\\"${project_version}\\\"\"")
-
 endif()
 
 
 # --------------------------------------------------------- Valgrind / GTest testing suite
 
 # add -all-valgrind target
-add_custom_target(valgrind)
+if(NOT TARGET valgrind)
+	add_custom_target(valgrind)
+endif()
 
 
 
