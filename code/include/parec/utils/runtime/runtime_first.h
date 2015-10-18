@@ -77,243 +77,339 @@ namespace runtime {
 	template<>
 	class Promise<void>;
 
-	template<typename T>
-	class FPLink;
-
-	template<>
-	class FPLink<void>;
-
-
-	template<typename T>
-	class FPLink {
-
-		friend class Future<T>;
-
-		friend class Promise<T>;
-
-		int ref_counter;
-
-		T value;
-
-		bool done;
-
-	private:
-
-		FPLink() : ref_counter(1), done(false) {}
-
-		FPLink(const T& value)
-			: ref_counter(1), value(value), done(true) {}
-
-		void incRef() {
-			ref_counter++;
-		}
-
-		void decRef() {
-			ref_counter--;
-			if (ref_counter == 0) delete this;
-		}
-
-		bool isDone() const { return done; }
-
-		void setValue(const T& value) {
-			this->value = value;
-			done = true;
-		}
-
-		const T& getValue() const {
-			return value;
-		}
-
-	};
-
-	template<typename T>
-	class Future {
-
-		friend class Promise<T>;
-
-		FPLink<T>* link;
-
-		Future(FPLink<T>* link) : link(link) {
-			link->incRef();
-		}
-
-	public:
-
-		Future(const T& res) : link(new FPLink<T>(res)) {}
-
-		Future(const Future&) = delete;
-
-		Future(Future&& other) : link(other.link) {
-			other.link = nullptr;
-		}
-
-		~Future() {
-			if (link) link->decRef();
-		}
-
-		Future& operator=(const Future&) = delete;
-
-		Future& operator=(Future&& other) {
-			if (link == other.link) return *this;
-			if (link) link->decRef();
-			link = other.link;
-			other.link = nullptr;
-			return *this;
-		}
-
-		bool isDone() const {
-			return link->isDone();
-		}
-
-		const T& get() const;
-
-	};
-
 
 	template<typename T>
 	class Promise {
 
-		FPLink<T>* link;
+		friend class Future<T>;
+
+		Future<T>* future;
 
 	public:
 
-		Promise() : link(new FPLink<T>()) {}
+		Promise() : future(nullptr) {}
 
-		Promise(const Promise& other) : link(other.link) {
-			link->incRef();
+		Promise(const Promise& other) {
+			if (other.future) {
+				future = other.future;
+				future->promise = this;
+			}
 		}
 
-		Promise(Promise& other) : link(other.link) {
-			other.link = nullptr;
+		Promise(Promise&& other) {
+			if (other.future) {
+				future = other.future;
+				future->promise = this;
+			}
 		}
 
-		~Promise() {
-			if (link) link->decRef();
-		}
-
-		Promise* operator()(const Promise& other) = delete;
-		Promise* operator()(Promise&& other) = delete;
+		Promise& operator=(const Promise&) = delete;
+		Promise& operator=(Promise&& other) = delete;
 
 		Future<T> getFuture() {
-			return Future<T>(link);
+			return Future<T>(*this);
 		}
 
-		void set(const T& res) {
-			link->setValue(res);
-		}
-
-	};
-
-
-
-	template<>
-	class FPLink<void> {
-
-		friend class Future<void>;
-
-		friend class Promise<void>;
-
-		int ref_counter;
-
-		bool done;
+		void set(const T& res);
 
 	private:
 
-		FPLink(bool done = false) : ref_counter(1), done(done) {}
-
-		void incRef() {
-			ref_counter++;
+		void updateFuture(Future<T>* future) {
+			this->future = future;
 		}
-
-		void decRef() {
-			ref_counter--;
-			if (ref_counter == 0) delete this;
-		}
-
-		bool isDone() const { return done; }
 
 	};
 
-	template<>
-	class Future<void> {
 
-		template<typename T>
-		friend class Promise;
+	template<typename T>
+	class Future {
 
-		FPLink<void>* link;
+		T res;
 
-		Future(FPLink<void>* link) : link(link) {
-			link->incRef();
+		std::atomic<Promise<T>*> promise;
+
+		std::atomic_flag msg_lck;
+
+		Future(Promise<T>& promise)
+			: promise(&promise), msg_lck(false) {
+			promise.updateFuture(this);
 		}
 
 	public:
 
-		Future() : link(nullptr) {}
+		Future(const T& res)
+			: res(res), promise(nullptr), msg_lck(false) {}
 
 		Future(const Future&) = delete;
 
-		Future(Future&& other) : link(other.link) {
-			other.link = nullptr;
+		Future(Future&& other)
+			: promise(nullptr), msg_lck(false) {
+
+			// lock other node (to not miss incoming messages)
+			other.msg_lock();
+
+			// migrate link to promise
+			auto ptr = other.promise.load(std::memory_order_relaxed);
+			promise.store(ptr, std::memory_order_relaxed);
+			if (ptr) {
+				ptr->updateFuture(this);
+			} else {
+				res = other.res;
+			}
+
+			other.promise.store(nullptr, std::memory_order_relaxed);
+
 		}
 
 		~Future() {
-			if (link) link->decRef();
+			separate();
 		}
 
 		Future& operator=(const Future&) = delete;
 
 		Future& operator=(Future&& other) {
-			if (link == other.link) return *this;
-			if (link) link->decRef();
-			link = other.link;
-			other.link = nullptr;
+			// separate link to current promise
+			separate();
+
+			// lock other node (to not miss incoming messages)
+			other.msg_lock();
+
+			// migrate link to promise
+			auto ptr = other.promise.load(std::memory_order_relaxed);
+			promise.store(ptr, std::memory_order_relaxed);
+			if (ptr) {
+				ptr->updateFuture(this);
+			} else {
+				res = other.res;
+			}
+
+			other.promise.store(nullptr, std::memory_order_relaxed);
+
 			return *this;
 		}
 
+
 		bool isDone() const {
-			return !link || link->isDone();
+			return promise == nullptr;
 		}
 
-		void get() const;
+		const T& get() const;
+
+	private:
+
+		friend class Promise<T>;
+
+		bool try_msg_lock() {
+			return !msg_lck.test_and_set(std::memory_order_acquire);
+		}
+
+		void msg_lock() {
+			while(msg_lck.test_and_set(std::memory_order_acquire)) {
+				// spin
+				cpu_relax();
+			}
+		}
+
+		void msg_unlock() {
+			msg_lck.clear(std::memory_order_release);
+		}
+
+		void separate() {
+			if (promise.load()) {
+				msg_lock();
+				if(auto ptr = promise.load()) ptr->updateFuture(nullptr);
+				msg_unlock();
+			}
+		}
+
+		void set(const T& value) {
+			res = value;
+			promise.store(nullptr, std::memory_order_release);
+		}
+
+	};
+
+
+	template<typename T>
+	void Promise<T>::set(const T& res) {
+		while (Future<T>* f = future) {
+			if (!f->try_msg_lock()) continue;
+			f->set(res);
+			f->msg_unlock();
+			future = nullptr;
+		}
+	}
+
+	template<>
+	class Promise<void> {
+
+		friend class Future<void>;
+
+		Future<void>* future;
+
+	public:
+
+		Promise() : future(nullptr) {}
+
+		Promise(Promise&& other);
+
+		Promise(const Promise&);
+
+//		~Promise() {
+//			if (auto f = future.load()) {
+//				f.msg_lock();
+//				f.setPromise(nullptr);
+//				f.msg_unlock();
+//			}
+//		}
+
+		Promise& operator=(const Promise&) = delete;
+		Promise& operator=(Promise&& other) = delete;
+
+		Future<void> getFuture();
+
+		void set();
+
+	private:
+
+		void updateFuture(Future<void>* future) {
+			this->future = future;
+		}
 
 	};
 
 
 	template<>
-	class Promise<void> {
+	class Future<void> {
 
-		FPLink<void>* link;
+		std::atomic<Promise<void>*> promise;
+
+		std::atomic_flag msg_lck;
+
+		Future(Promise<void>& promise)
+			: promise(&promise), msg_lck(false) {
+			promise.updateFuture(this);
+		}
 
 	public:
 
-		Promise() : link(new FPLink<void>()) {}
+		Future()
+			: promise(nullptr), msg_lck(false) {}
 
-		Promise(const Promise& other) : link(other.link) {
-			link->incRef();
+		Future(const Future&) = delete;
+
+		Future(Future&& other)
+			: promise(nullptr), msg_lck(false) {
+
+			// lock other node (to not miss incoming messages)
+			other.msg_lock();
+
+			// migrate link to promise
+			auto ptr = other.promise.load(std::memory_order_relaxed);
+			promise.store(ptr, std::memory_order_relaxed);
+			if (ptr) {
+				ptr->updateFuture(this);
+			}
+
+			// separate other future from promise
+			other.promise = nullptr;
 		}
 
-		Promise(Promise& other) : link(other.link) {
-			other.link = nullptr;
+		~Future() {
+			separate();
 		}
 
-		~Promise() {
-			if (link) link->decRef();
+		Future& operator=(const Future&) = delete;
+
+		Future& operator=(Future&& other) {
+			// separate link to current promise
+			separate();
+
+			// lock other node (to not miss incoming messages)
+			other.msg_lock();
+
+			// migrate link to promise
+			auto ptr = other.promise.load(std::memory_order_relaxed);
+			promise.store(ptr, std::memory_order_relaxed);
+			if (ptr) {
+				ptr->updateFuture(this);
+			}
+
+			// remove promis link in other
+			other.promise = nullptr;
+
+			return *this;
 		}
 
-		Promise* operator()(const Promise& other) = delete;
-		Promise* operator()(Promise&& other) = delete;
 
-		Future<void> getFuture() {
-			return Future<void>(link);
+		bool isDone() const {
+			return promise == nullptr;
+		}
+
+		void get() const;
+
+	private:
+
+		friend class Promise<void>;
+
+		bool try_msg_lock() {
+			return !msg_lck.test_and_set(std::memory_order_acquire);
+		}
+
+		void msg_lock() {
+			while(msg_lck.test_and_set(std::memory_order_acquire)) {
+				// spin
+				cpu_relax();
+			}
+		}
+
+		void msg_unlock() {
+			msg_lck.clear(std::memory_order_release);
+		}
+
+		void separate() {
+			if (promise.load()) {
+				msg_lock();
+				if(auto ptr = promise.load()) ptr->updateFuture(nullptr);
+				msg_unlock();
+			}
 		}
 
 		void set() {
-			link->done = true;
+			promise.store(nullptr, std::memory_order_release);
 		}
 
 	};
 
+	Promise<void>::Promise(const Promise& other) {
+		if (other.future) {
+			future = other.future;
+			future->promise.store(this, std::memory_order_relaxed);
+		}
+	}
 
+	Promise<void>::Promise(Promise&& other) {
+		if (other.future) {
+			future = other.future;
+			future->promise.store(this, std::memory_order_relaxed);
+			other.future = nullptr;
+		}
+	}
+
+	Future<void> Promise<void>::getFuture() {
+		return Future<void>(*this);
+	}
+
+	void Promise<void>::set() {
+		while (Future<void>* f = future) {
+			if (!f->try_msg_lock()) continue;
+//			if (f != future) continue;
+//			std::cout << "sending message from p=" << this << " to f=" << future << "\n";
+			f->set();
+			f->msg_unlock();
+			future = nullptr;
+		}
+	}
 
 	using Task = std::function<void()>;
 
@@ -599,7 +695,7 @@ namespace runtime {
 			// process another task
 			getCurrentWorker().schedule_step();
 		}
-		return link->getValue();
+		return res;
 	}
 
 	void Future<void>::get() const {
@@ -618,18 +714,18 @@ namespace runtime {
 			return;
 		}
 
-		// otherwise, steal a task from another worker
-		Worker& other = pool.getWorker(rand() % pool.getNumWorkers());
-		if (this == &other) {
-			schedule_step();
-			return;
-		}
-
-		if (Task* t = other.queue.pop_front()) {
-			t->operator()();
-			delete t;
-			return;
-		}
+//		// otherwise, steal a task from another worker
+//		Worker& other = pool.getWorker(rand() % pool.getNumWorkers());
+//		if (this == &other) {
+//			schedule_step();
+//			return;
+//		}
+//
+//		if (Task* t = other.queue.pop_front()) {
+//			t->operator()();
+//			delete t;
+//			return;
+//		}
 	}
 
 
