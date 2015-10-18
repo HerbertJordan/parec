@@ -476,7 +476,9 @@ namespace runtime {
 		WorkerPool() {
 
 //			std::cout << "Creating " << std::thread::hardware_concurrency() << " threads!\n";
+//			for(unsigned i=0; i<std::thread::hardware_concurrency()-1; ++i) {
 			for(unsigned i=0; i<std::thread::hardware_concurrency(); ++i) {
+//			for(unsigned i=0; i<2; ++i) {
 //			for(unsigned i=0; i<1; ++i) {
 				workers.push_back(new Worker(*this));
 			}
@@ -640,6 +642,9 @@ namespace runtime {
 			delete t;
 			return;
 		}
+
+		// no task found => wait a moment
+		cpu_relax();
 	}
 
 

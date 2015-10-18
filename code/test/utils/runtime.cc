@@ -25,8 +25,8 @@ namespace util {
 
 		std::atomic<int> c;
 		c = 0;
-		int N = 10000000;
-//		int N = 1000;
+//		int N = 10000000;
+		int N = 1000;
 
 		std::vector<runtime::Future<void>> list;
 		for(int i=0; i<N; i++) {

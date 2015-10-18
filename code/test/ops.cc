@@ -20,11 +20,15 @@ namespace parec {
 
 	TEST(RecOps, PforPerformance) {
 
-//		static const int N = 1000000;
-		static const int N = 100;
+		static const int N = 1000000;
+//		static const int N = 100;
 		using Vector = std::array<int,N>;
 
 		Vector r;
+
+		for(int i=0; i<100; i++) {
+			r[i] = 2*i+1;
+		}
 
 		pfor(r, [](int& a) {
 			int s = 0;

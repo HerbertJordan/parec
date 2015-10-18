@@ -18,14 +18,16 @@ namespace parec {
 	template<typename Iter, typename Op>
 	void pfor(Iter a, Iter b, const Op& op) {
 		// implements a binary splitting policy for iterating over the given iterator range
+		auto cut = std::distance(a,b) / 1000;
+		cut = (cut < 1) ? 1 : cut;
 		typedef std::pair<Iter,Iter> range;
 		prec(
-			[](const range& r) {
-				return std::distance(r.first,r.second) <= 1;
+			[cut](const range& r) {
+				return std::distance(r.first,r.second) <= cut;
 			},
 			[&](const range& r) {
 				if (std::distance(r.first,r.second) < 1) return;
-				op(*r.first);
+				for(auto it = r.first; it != r.second; ++it) op(*it);
 			},
 			[](const range& r, const typename prec_fun<void(range)>::type& f) {
 				// here we have the binary splitting
