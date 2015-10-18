@@ -9,6 +9,18 @@ namespace parec {
 
 	using std::string;
 
+	TEST(PickRandom, SimpleTest) {
+
+		std::vector<int> data;
+		std::srand(1);
+		for(int i =0; i<20; i++) {
+			data.push_back(detail::pickRandom(1,2,3,4,5));
+		}
+
+		EXPECT_EQ(std::vector<int>({5,2,3,4,5,2,2,2,2,2,1,2,4,5,5,3,4,3,1,4}), data);
+
+	}
+
 	TEST(RecOps, Functions) {
 		auto inc = toFunction([](int x) { return x + 1; });
 		EXPECT_EQ(3,inc(2));
@@ -197,7 +209,7 @@ namespace parec {
 
 
 	int fib(int x) {
-		typedef typename std::function<std::future<int>(int)> fun_type;
+		typedef typename std::function<util::runtime::Future<int>(int)> fun_type;
 
 		return prec(
 				fun(
@@ -212,7 +224,7 @@ namespace parec {
 	}
 
 	int fac(int x) {
-		typedef typename std::function<std::future<int>(int)> fun_type;
+		typedef typename std::function<util::runtime::Future<int>(int)> fun_type;
 
 		return prec(
 				fun(
@@ -265,17 +277,5 @@ namespace parec {
 
 	}
 
-
-	TEST(PickRandom, SimpleTest) {
-
-		std::vector<int> data;
-		std::srand(1);
-		for(int i =0; i<20; i++) {
-			data.push_back(detail::pickRandom(1,2,3,4,5));
-		}
-
-		EXPECT_EQ(std::vector<int>({5,2,3,4,5,2,2,2,2,2,1,2,4,5,5,3,4,3,1,4}), data);
-
-	}
 
 } // end namespace parec

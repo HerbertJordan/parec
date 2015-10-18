@@ -139,6 +139,8 @@ namespace runtime {
 
 	public:
 
+		Future() : link(nullptr) {}
+
 		Future(const T& res) : link(new FPLink<T>(res)) {}
 
 		Future(const Future&) = delete;
@@ -475,6 +477,7 @@ namespace runtime {
 
 //			std::cout << "Creating " << std::thread::hardware_concurrency() << " threads!\n";
 			for(unsigned i=0; i<std::thread::hardware_concurrency(); ++i) {
+//			for(unsigned i=0; i<1; ++i) {
 				workers.push_back(new Worker(*this));
 			}
 
@@ -509,8 +512,12 @@ namespace runtime {
 			return workers.size();
 		}
 
-		Worker& getWorker(int i = 0) {
+		Worker& getWorker(int i) {
 			return *workers[i];
+		}
+
+		Worker& getWorker() {
+			return getWorker(rand() % workers.size());
 		}
 
 	private:
@@ -523,7 +530,6 @@ namespace runtime {
 				if (worker.queue.full()) {
 					return task();  // run task and be happy
 				}
-
 
 				// create a schedulable task
 				Promise<R> p;
@@ -618,8 +624,12 @@ namespace runtime {
 			return;
 		}
 
+		// check that there are other workers
+		int numWorker = pool.getNumWorkers();
+		if (numWorker <= 1) return;
+
 		// otherwise, steal a task from another worker
-		Worker& other = pool.getWorker(rand() % pool.getNumWorkers());
+		Worker& other = pool.getWorker(rand() % numWorker);
 		if (this == &other) {
 			schedule_step();
 			return;

@@ -164,7 +164,7 @@ namespace parec {
 							auto x = cur.first;
 							auto o = cur.second;
 
-							std::future<node*> l,r;
+							util::runtime::Future<node*> l,r;
 
 							// if values are equivalent ...
 							if (x->value == o->value) {

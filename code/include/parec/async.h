@@ -12,7 +12,7 @@ namespace parec {
 	 * A simple version of an async operator based on the prec operator.
 	 */
 	template< class Function>
-	std::future<typename std::result_of<Function()>::type>
+	util::runtime::Future<typename std::result_of<Function()>::type>
 	async(const Function& f ) {
 		struct empty {};
 		typedef typename std::result_of<Function()>::type res_type;

@@ -18,6 +18,25 @@ namespace parec {
 		});
 	}
 
+	TEST(RecOps, PforPerformance) {
+
+//		static const int N = 1000000;
+		static const int N = 100;
+		using Vector = std::array<int,N>;
+
+		Vector r;
+
+		pfor(r, [](int& a) {
+			int s = 0;
+			for(int i=0; i<32; i++) {
+				if (a>>i % 2) s++;
+				if (a>>i % 3) s++;
+			}
+			a = s;
+		});
+
+	}
+
 	TEST(RecOps, Reduce) {
 
 		auto plus = [](int a, int b) { return a + b; };
@@ -28,5 +47,6 @@ namespace parec {
 		std::vector<int> e = { };
 		EXPECT_EQ(0, preduce(e, plus));
 	}
+
 
 } // end namespace parec
