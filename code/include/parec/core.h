@@ -16,7 +16,7 @@ namespace parec {
 
 	template<typename O, typename I>
 	struct prec_fun<O(I)> {
-		typedef std::function<util::runtime::Future<O>(I)> type;
+		typedef std::function<utils::runtime::Future<O>(I)> type;
 	};
 
 	namespace detail {
@@ -235,7 +235,7 @@ namespace parec {
 		typename I = typename type_at<i,type_list<Defs...>>::type::in_type,
 		typename O = typename type_at<i,type_list<Defs...>>::type::out_type
 	>
-	std::function<util::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& );
+	std::function<utils::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& );
 
 
 	namespace detail {
@@ -243,7 +243,7 @@ namespace parec {
 		template<unsigned n>
 		struct caller {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
-			util::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
+			utils::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
 				return caller<n-1>().call<O>(f,i,d,args...,parec<n>(d));
 			}
 		};
@@ -251,8 +251,8 @@ namespace parec {
 		template<>
 		struct caller<0> {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
-			util::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return util::runtime::spawn([=]() { return f(i,parec<0>(d),args...); });
+			utils::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
+				return utils::runtime::spawn([=]() { return f(i,parec<0>(d),args...); });
 			}
 		};
 
@@ -283,7 +283,7 @@ namespace parec {
 			typename O,
 			typename I
 		>
-		util::runtime::Future<O> call(const I& in) const {
+		utils::runtime::Future<O> call(const I& in) const {
 			// get targeted function
 			auto x = std::get<i>(*this);
 
@@ -311,9 +311,9 @@ namespace parec {
 		typename I = typename type_at<i,type_list<Defs...>>::type::in_type,
 		typename O = typename type_at<i,type_list<Defs...>>::type::out_type
 	>
-	std::function<util::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& defs) {
+	std::function<utils::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& defs) {
 		auto x = std::get<i>(defs);
-		return [=](const I& in)->util::runtime::Future<O> {
+		return [=](const I& in)->utils::runtime::Future<O> {
 			return defs.template call<i,O,I>(in);
 		};
 	}

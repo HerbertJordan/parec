@@ -1,58 +1,22 @@
 #pragma once
 
 #include <atomic>
+#include <cstdlib>
 #include <thread>
 
 #include "parec/utils/functional_utils.h"
 #include "parec/utils/printer/arrays.h"
 
+#include "parec/utils/runtime/lock.h"
+
+/**
+ * This header provides a header-only implementation of a minimal
+ * runtime for nested parallel tasks.
+ */
+
 namespace parec {
-namespace util {
+namespace utils {
 namespace runtime {
-
-	/* Pause instruction to prevent excess processor bus usage */
-	#define cpu_relax() asm volatile("pause\n": : :"memory")
-
-	class Waiter {
-		int i;
-	public:
-		Waiter() : i(0) {}
-
-		void operator()() {
-			++i;
-			if ((i % 1000) == 0) {
-				// there was no progress => let others work
-				std::this_thread::yield();
-			} else {
-				// relax this CPU
-				cpu_relax();
-			}
-		}
-	};
-
-
-
-    class SpinLock {
-        std::atomic<int> lck;
-    public:
-
-        SpinLock() : lck(0) {
-        }
-
-        void lock() {
-            Waiter wait;
-            while(!try_lock()) wait();
-        }
-
-        bool try_lock() {
-            int should = 0;
-            return lck.compare_exchange_weak(should, 1, std::memory_order_acquire);
-        }
-
-        void unlock() {
-            lck.store(0, std::memory_order_release);
-        }
-    };
 
 	struct Worker;
 
@@ -64,6 +28,10 @@ namespace runtime {
 
 	static Worker& getCurrentWorker();
 
+
+	// -----------------------------------------------------------------
+	//						Future / Promise
+	// -----------------------------------------------------------------
 
 	template<typename T>
 	class Future;
@@ -207,6 +175,7 @@ namespace runtime {
 	};
 
 
+	// - void specialization -
 
 	template<>
 	class FPLink<void> {
@@ -316,6 +285,10 @@ namespace runtime {
 	};
 
 
+
+	// -----------------------------------------------------------------
+	//						    Worker Pool
+	// -----------------------------------------------------------------
 
 	using Task = std::function<void()>;
 
@@ -441,21 +414,15 @@ namespace runtime {
 			// register worker
 			setCurrentWorker(*this);
 
-			// TODO: sync work queue + steeling + idle time handling
+			// TODO: idle time handling
 
 			// start processing loop
 			while(alive) {
-
 				// conduct a schedule step
 				schedule_step();
-//				// process tasks in queue
-//				while(Task* t = queue.pop_back()) {
-//					t->operator()();		// run task
-//					delete t;
-//				}
 			}
 
-			// terminate
+			// done
 
 		}
 
@@ -475,14 +442,23 @@ namespace runtime {
 
 		WorkerPool() {
 
-//			std::cout << "Creating " << std::thread::hardware_concurrency() << " threads!\n";
-//			for(unsigned i=0; i<std::thread::hardware_concurrency()-1; ++i) {
-			for(unsigned i=0; i<std::thread::hardware_concurrency(); ++i) {
-//			for(unsigned i=0; i<2; ++i) {
-//			for(unsigned i=0; i<1; ++i) {
+			int numWorkers = std::thread::hardware_concurrency();
+
+			// parse environment variable
+			if (char* val = std::getenv("NUM_WORKERS")) {
+				auto userDef = std::atoi(val);
+				if (userDef != 0) numWorkers = userDef;
+			}
+
+			// must be at least one
+			if (numWorkers < 1) numWorkers = 1;
+
+			// create workers
+			for(int i=0; i<numWorkers; ++i) {
 				workers.push_back(new Worker(*this));
 			}
 
+			// start workers
 			for(auto& cur : workers) cur->start();
 		}
 
@@ -491,7 +467,6 @@ namespace runtime {
 
 			// poison all workers
 			for(auto& cur : workers) {
-//				std::cout << "Poisoning worker " << &cur << "\n";
 				cur->poison();
 			}
 
@@ -566,10 +541,8 @@ namespace runtime {
 				Promise<void> p;
 				auto res = p.getFuture();
 				Task* t = new Task([=]() mutable {
-//					std::cout << "starting task ..\n";
 					task();
 					p.set();
-//					std::cout << "ending task ..\n";
 				});
 
 				// schedule task
@@ -594,8 +567,7 @@ namespace runtime {
 			// get current worker
 			auto& worker = getCurrentWorker();
 
-			// TODO: handle spawn call from non-thread
-
+			// run task
 			return runner<Lambda,R>()(worker, lambda);
 		}
 
@@ -663,5 +635,5 @@ namespace runtime {
 
 
 } // end namespace runtime
-} // end namespace util
+} // end namespace utils
 } // end namespace parec

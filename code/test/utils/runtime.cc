@@ -4,7 +4,7 @@
 #include "parec/utils/runtime/runtime.h"
 
 namespace parec {
-namespace util {
+namespace utils {
 
 	TEST(Runtime, Basic) {
 

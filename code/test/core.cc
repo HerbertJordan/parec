@@ -209,7 +209,7 @@ namespace parec {
 
 
 	int fib(int x) {
-		typedef typename std::function<util::runtime::Future<int>(int)> fun_type;
+		typedef typename std::function<utils::runtime::Future<int>(int)> fun_type;
 
 		return prec(
 				fun(
@@ -224,7 +224,7 @@ namespace parec {
 	}
 
 	int fac(int x) {
-		typedef typename std::function<util::runtime::Future<int>(int)> fun_type;
+		typedef typename std::function<utils::runtime::Future<int>(int)> fun_type;
 
 		return prec(
 				fun(
