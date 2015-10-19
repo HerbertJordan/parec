@@ -39,63 +39,63 @@ namespace parec {
 	}
 
 
-	namespace {
-
-		template<unsigned size, unsigned steps = 3*size + 4>
-		void run_rec_test() {
-
-			typedef array<int,size> Field;
-
-			// create an array
-			Field A;
-
-			// init the array
-			pfor(A.begin(), A.end(), [](int& a) { a = 0; });
-
-			// create 3 copies
-			Field As = A;
-			Field Ai = A;
-			Field Ar = A;
-
-			auto update = [](int t, int i, const Field& A)->int {
-				EXPECT_EQ(t,A[i]) << "Time step " << t << " field " << i;
-				return A[i]+1;
-			};
-
-			auto t = steps;
-
-			// apply different stencils (todo: in parallel)
-			detail::stencil_seq(As, t, update);
-			detail::stencil_iter(Ai, t, update);
-			detail::stencil_rec(Ar, t, update);
-
-			EXPECT_EQ(As, Ai);
-			EXPECT_EQ(As, Ar);
-		}
-
-	}
-
-	TEST(Sets, Working) {
-		run_rec_test<0>();
-		run_rec_test<1>();
-		run_rec_test<2>();
-		run_rec_test<3>();
-		run_rec_test<4>();
-		run_rec_test<5>();
-		run_rec_test<6>();
-		run_rec_test<7>();
-		run_rec_test<8>();
-		run_rec_test<9>();
-		run_rec_test<10>();
-		run_rec_test<11>();
-		run_rec_test<12>();
-		run_rec_test<13>();
-		run_rec_test<14>();
-		run_rec_test<15>();
-	}
-
-	TEST(Sets, Large) {
-		run_rec_test<500>();
-	}
+//	namespace {
+//
+//		template<unsigned size, unsigned steps = 3*size + 4>
+//		void run_rec_test() {
+//
+//			typedef array<int,size> Field;
+//
+//			// create an array
+//			Field A;
+//
+//			// init the array
+//			pfor(A.begin(), A.end(), [](int& a) { a = 0; });
+//
+//			// create 3 copies
+//			Field As = A;
+//			Field Ai = A;
+//			Field Ar = A;
+//
+//			auto update = [](int t, int i, const Field& A)->int {
+//				EXPECT_EQ(t,A[i]) << "Time step " << t << " field " << i;
+//				return A[i]+1;
+//			};
+//
+//			auto t = steps;
+//
+//			// apply different stencils (todo: in parallel)
+//			detail::stencil_seq(As, t, update);
+//			detail::stencil_iter(Ai, t, update);
+//			detail::stencil_rec(Ar, t, update);
+//
+//			EXPECT_EQ(As, Ai);
+//			EXPECT_EQ(As, Ar);
+//		}
+//
+//	}
+//
+//	TEST(Sets, Working) {
+//		run_rec_test<0>();
+//		run_rec_test<1>();
+//		run_rec_test<2>();
+//		run_rec_test<3>();
+//		run_rec_test<4>();
+//		run_rec_test<5>();
+//		run_rec_test<6>();
+//		run_rec_test<7>();
+//		run_rec_test<8>();
+//		run_rec_test<9>();
+//		run_rec_test<10>();
+//		run_rec_test<11>();
+//		run_rec_test<12>();
+//		run_rec_test<13>();
+//		run_rec_test<14>();
+//		run_rec_test<15>();
+//	}
+//
+//	TEST(Sets, Large) {
+//		run_rec_test<500>();
+//	}
 
 } // end namespace parec
