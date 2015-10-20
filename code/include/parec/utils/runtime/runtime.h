@@ -473,6 +473,10 @@ namespace runtime {
 			// wait for their death
 			for(auto& cur : workers) {
 				cur->join();
+			}
+
+			// free resources
+			for(auto& cur : workers) {
 				delete cur;
 			}
 
