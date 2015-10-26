@@ -18,6 +18,74 @@ namespace parec {
 		});
 	}
 
+	TEST(RecOps, PforInts) {
+
+		std::atomic<int> counter;
+		counter = 0;
+
+		bool map[20];
+		for(int i=0; i<20; i++) {
+			map[i] = false;
+		}
+
+		pfor(5,10,[&](int a) {
+			map[a] = true;
+			++counter;
+		});
+
+		// check correct number of calls
+		EXPECT_EQ(10-5, counter);
+
+		// check correct arguments
+		for(int i=0; i<20; i++) {
+			EXPECT_EQ(5 <= i && i <10, map[i]);
+		}
+
+	}
+
+	TEST(RecOps, PforArea) {
+
+		using coord = std::array<int,3>;
+
+		coord a = { 10, 20, 30 };
+		coord b = { 12, 23, 34 };
+
+		std::atomic<int> counter;
+		counter = 0;
+
+		bool map[50][50][50];
+		for(int i=0; i<50; i++) {
+			for(int j=0; j<50; j++) {
+				for(int k=0; k<50; k++) {
+					map[i][j][k] = false;
+				}
+			}
+		}
+
+		pfor(a,b,[&](const coord& a) {
+			map[a[0]][a[1]][a[2]] = true;
+			++counter;
+		});
+
+		// check correct number of calls
+		EXPECT_EQ(2*3*4,counter);
+
+		// check coordinates
+		for(int i=0; i<50; i++) {
+			for(int j=0; j<50; j++) {
+				for(int k=0; k<50; k++) {
+					bool in = true;
+					in = in && 10 <= i && i < 12;
+					in = in && 20 <= j && j < 23;
+					in = in && 30 <= k && k < 34;
+					EXPECT_EQ(in, map[i][j][k]);
+				}
+			}
+		}
+
+	}
+
+
 	TEST(RecOps, PforPerformance) {
 
 		static const int N = 1000000;

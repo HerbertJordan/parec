@@ -4,6 +4,7 @@
 #include <functional>
 #include <future>
 #include <mutex>
+#include <array>
 
 #include "parec/core.h"
 #include "parec/utils/sequence.h"
@@ -12,22 +13,144 @@ namespace parec {
 
 	// ----- parallel loops ------
 
+	namespace detail {
+
+		template<typename Iter>
+		size_t distance(const Iter& a, const Iter& b) {
+			return std::distance(a,b);
+		}
+
+		size_t distance(int a, int b) {
+			return b-a;
+		}
+
+		template<typename Iter>
+		size_t distance(const std::pair<Iter,Iter>& r) {
+			return distance(r.first,r.second);
+		}
+
+		template<typename Iter>
+		auto access(const Iter& iter) -> decltype(*iter) {
+			return *iter;
+		}
+
+		int access(int a) {
+			return a;
+		}
+
+
+		template<typename Iter, size_t dims>
+		size_t area(const std::array<std::pair<Iter,Iter>,dims>& range) {
+			size_t res = 1;
+			for(size_t i = 0; i<dims; i++) {
+				res *= distance(range[i].first, range[i].second);
+			}
+			return res;
+		}
+
+
+		template<size_t idx>
+		struct scanner {
+			scanner<idx-1> nested;
+			template<typename Iter, size_t dims, typename Op>
+			void operator()(const std::array<std::pair<Iter,Iter>,dims>& range, std::array<Iter,dims>& cur, const Op& op) {
+				auto& i = cur[dims-idx];
+				for(i = range[dims-idx].first; i != range[dims-idx].second; ++i ) {
+					nested(range, cur, op);
+				}
+			}
+		};
+
+		template<>
+		struct scanner<0> {
+			template<typename Iter, size_t dims, typename Op>
+			void operator()(const std::array<std::pair<Iter,Iter>,dims>&, std::array<Iter,dims>& cur, const Op& op) {
+				op(cur);
+			}
+		};
+
+		template<typename Iter, size_t dims, typename Op>
+		void for_each(const std::array<std::pair<Iter,Iter>,dims>& range, const Op& op) {
+
+			// the current position
+			std::array<Iter,dims> cur;
+
+			// scan range
+			scanner<dims>()(range, cur, op);
+
+		}
+	}
+
+
+	template<typename Iter, size_t dims, typename Op>
+	void pfor(const std::array<Iter,dims>& a, const std::array<Iter,dims>& b, const Op& op) {
+		// process 0-dimensional case
+		if (dims == 0) return; // no iterations required
+
+		// implements a recursive splitting policy for iterating over the given iterator range
+		using range = std::array<std::pair<Iter,Iter>,dims>;
+		range full;
+		for(size_t i = 0; i<dims; i++) {
+			full[i] = std::make_pair(a[i],b[i]);
+		}
+		auto cut = detail::area(full) / 1000;
+		cut = (cut < 1) ? 1 : cut;
+		prec(
+			[cut](const range& r) {
+				return detail::area(r) <= cut;
+			},
+			[&](const range& r) {
+				if (detail::area(r) < 1) return;
+				detail::for_each(r,op);
+			},
+			[](const range& r, const typename prec_fun<void(range)>::type& f) {
+				// here we have the binary splitting
+
+				// TODO: think about splitting all dimensions
+
+				// get the longest dimension
+				size_t maxDim = 0;
+				size_t maxDist = detail::distance(r[0]);
+				for(size_t i = 1; i<dims;++i) {
+					size_t curDist = detail::distance(r[i]);
+					if (curDist > maxDist) {
+						maxDim = i;
+						maxDist = curDist;
+					}
+				}
+
+				// split the longest dimension
+				range a = r;
+				range b = r;
+
+				auto mid = r[maxDim].first + (maxDist / 2);
+				a[maxDim].second = mid;
+				b[maxDim].first = mid;
+
+				// process branches
+				auto x = f(a);
+				auto y = f(b);
+				x.get(); y.get();		// sync futures (also automated by destructor)
+			}
+		)(full).get();
+	}
+
 	/**
 	 * A parallel for-each implementation iterating over the given range of elements.
 	 */
 	template<typename Iter, typename Op>
 	void pfor(Iter a, Iter b, const Op& op) {
 		// implements a binary splitting policy for iterating over the given iterator range
-		auto cut = std::distance(a,b) / 1000;
+		auto cut = detail::distance(a,b) / 1000;
 		cut = (cut < 1) ? 1 : cut;
 		typedef std::pair<Iter,Iter> range;
 		prec(
 			[cut](const range& r) {
-				return std::distance(r.first,r.second) <= cut;
+				return detail::distance(r.first,r.second) <= cut;
 			},
 			[&](const range& r) {
-				if (std::distance(r.first,r.second) < 1) return;
-				for(auto it = r.first; it != r.second; ++it) op(*it);
+				if (detail::distance(r.first,r.second) < 1) return;
+				for(auto it = r.first; it != r.second; ++it) op(detail::access(it));
 			},
 			[](const range& r, const typename prec_fun<void(range)>::type& f) {
 				// here we have the binary splitting
