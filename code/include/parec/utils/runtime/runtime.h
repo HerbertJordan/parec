@@ -184,7 +184,7 @@ namespace runtime {
 
 		friend class Promise<void>;
 
-		int ref_counter;
+		std::atomic<int> ref_counter;
 
 		bool done;
 
@@ -197,8 +197,8 @@ namespace runtime {
 		}
 
 		void decRef() {
-			ref_counter--;
-			if (ref_counter == 0) delete this;
+			auto precount = ref_counter.fetch_sub(1);
+			if (precount == 1) delete this;
 		}
 
 		bool isDone() const { return done; }
