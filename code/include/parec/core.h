@@ -244,7 +244,7 @@ namespace parec {
 		struct caller {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
 			utils::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return caller<n-1>().call<O>(f,i,d,args...,parec<n>(d));
+				return caller<n-1>().template call<O>(f,i,d,args...,parec<n>(d));
 			}
 		};
 
@@ -306,10 +306,10 @@ namespace parec {
 
 
 	template<
-		unsigned i = 0,
+		unsigned i, //= 0,  ~~  Defaulted in declaration ~~
 		typename ... Defs,
-		typename I = typename type_at<i,type_list<Defs...>>::type::in_type,
-		typename O = typename type_at<i,type_list<Defs...>>::type::out_type
+		typename I, // = typename type_at<i,type_list<Defs...>>::type::in_type,
+		typename O // = typename type_at<i,type_list<Defs...>>::type::out_type
 	>
 	std::function<utils::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& defs) {
 		auto x = std::get<i>(defs);
