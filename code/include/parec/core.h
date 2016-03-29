@@ -8,6 +8,7 @@
 
 #include "parec/utils/runtime/runtime.h"
 #include "parec/utils/functional_utils.h"
+#include "parec/utils/tuple_utils.h"
 #include "parec/utils/vector_utils.h"
 
 namespace parec {
@@ -36,95 +37,102 @@ namespace parec {
 			return pickRandom(others...);
 		}
 
-		template<typename E>
-		E pickRandom(const std::vector<E>& list) {
-			return list[rand(list.size())];
-		}
+		template<unsigned L>
+		struct random_caller {
+
+			template<
+				typename Res,
+				typename ... Versions,
+				typename ... Args
+			>
+			Res callRandom(unsigned pos, const std::tuple<Versions...>& version, const Args& ... args) {
+				if (pos == L) return std::get<L>(version)(args...);
+				return random_caller<L-1>().template callRandom<Res>(pos,version,args...);
+			}
+
+			template<
+				typename Res,
+				typename ... Versions,
+				typename ... Args
+			>
+			Res callRandom(const std::tuple<Versions...>& version, const Args& ... args) {
+				int index = rand(sizeof...(Versions));
+				return callRandom<Res>(index, version, args...);
+			}
+
+		};
+
+		template<>
+		struct random_caller<0> {
+			template<
+				typename Res,
+				typename ... Versions,
+				typename ... Args
+			>
+			Res callRandom(unsigned, const std::tuple<Versions...>& versions, const Args& ... args) {
+				return std::get<0>(versions)(args...);
+			}
+
+			template<
+				typename Res,
+				typename ... Versions,
+				typename ... Args
+			>
+			Res callRandom(const std::tuple<Versions...>& versions, const Args& ... args) {
+				return std::get<0>(versions)(args...);
+			}
+		};
 
 	} // end namespace detail
 
 	// ----- function handling ----------
 
-	namespace detail {
-
-		namespace detail {
-
-			template<typename Function> struct fun_type_of_helper { };
-
-			template<typename R, typename ... A>
-			struct fun_type_of_helper<R(A...)> {
-			  typedef R type(A...);
-			};
-
-			// get rid of const modifier
-			template<typename T>
-			struct fun_type_of_helper<const T> : public fun_type_of_helper<T> {};
-
-			// get rid of pointers
-			template<typename T>
-			struct fun_type_of_helper<T*> : public fun_type_of_helper<T> {};
-
-			// handle class of member function pointers
-			template<typename R, typename C, typename ... A>
-			struct fun_type_of_helper<R(C::*)(A...)> : public fun_type_of_helper<R(A...)> {};
-
-			// get rid of const modifier in member function pointer
-			template<typename R, typename C, typename ... A>
-			struct fun_type_of_helper<R(C::*)(A...) const> : public fun_type_of_helper<R(A...)> {};
-
-		} // end namespace detail
-
-
-		template <typename Lambda>
-		struct fun_type_of : public detail::fun_type_of_helper<decltype(&Lambda::operator())> { };
-
-		template<typename R, typename ... P>
-		struct fun_type_of<R(P...)> : public detail::fun_type_of_helper<R(P...)> { };
-
-		template<typename R, typename ... P>
-		struct fun_type_of<R(*)(P...)> : public fun_type_of<R(P...)> { };
-
-		template<typename R, typename ... P>
-		struct fun_type_of<R(* const)(P...)> : public fun_type_of<R(P...)> { };
-
-		template<typename R, typename C, typename ... P>
-		struct fun_type_of<R(C::*)(P...)> : public detail::fun_type_of_helper<R(C::*)(P...)> { };
-
-		template<typename R, typename C, typename ... P>
-		struct fun_type_of<R(C::* const)(P...)> : public fun_type_of<R(C::*)(P...)> { };
-
-
-	} // end namespace detail
-
-	// --- function definitions ---
+	template<
+		typename O,
+		typename I,
+		typename BaseCaseTest,
+		typename BaseCases,
+		typename StepCases
+	>
+	struct fun_def;
 
 	template<
-		typename FunctorType,
-		typename FunctionType = typename detail::fun_type_of<FunctorType>::type
+		typename O,
+		typename I,
+		typename BaseCaseTest,
+		typename ... BaseCases,
+		typename ... StepCases
 	>
-	std::function<FunctionType> toFunction(const FunctorType& f) {
-		return std::function<FunctionType>(f);
-	}
-
-	template<typename O, typename I, typename ... Funs>
-	struct fun_def {
+	struct fun_def<O,I,BaseCaseTest,std::tuple<BaseCases...>,std::tuple<StepCases...>> {
 		typedef I in_type;
 		typedef O out_type;
 
-		std::function<bool(I)> bc_test;
-		std::vector<std::function<O(I)>> base;
-		std::vector<std::function<O(I,Funs...)>> step;
+		BaseCaseTest bc_test;
+		std::tuple<BaseCases...> base;
+		std::tuple<StepCases...> step;
 
 		fun_def(
-			const std::function<bool(I)>& test,
-			const std::vector<std::function<O(I)>>& base,
-			const std::vector<std::function<O(I,Funs...)>>& step
+			const BaseCaseTest& test,
+			const std::tuple<BaseCases...>& base,
+			const std::tuple<StepCases...>& step
 		) : bc_test(test), base(base), step(step) {}
 
-		O operator()(const I& in, const Funs& ... funs) const {
-			if (bc_test(in)) return detail::pickRandom(base)(in);
-			return detail::pickRandom(step)(in, funs...);
+		template<typename ... Funs>
+		utils::runtime::Future<O> operator()(const I& in, const Funs& ... funs) const {
+			// check for the base case
+			const auto& base = this->base;
+			if (bc_test(in)) return utils::runtime::spawn([=] {
+				return detail::random_caller<sizeof...(BaseCases)-1>().template callRandom<O>(base, in);
+			});
+
+			// run step case
+			const auto& step = this->step;
+			return utils::runtime::spawn(
+					// TODO: forward sequential alternative
+					[=]() { return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs...); }
+			);
 		}
+
 	};
 
 	namespace detail {
@@ -141,87 +149,48 @@ namespace parec {
 		template<typename T>
 		struct is_fun_def<T&> : public is_fun_def<T> {};
 
-		template<
-			typename O,
-			typename I,
-			typename ... Funs
-		>
-		fun_def<O,I,Funs...> fun_intern(
-				const std::function<bool(I)>& test,
-				const std::vector<std::function<O(I)>>& base,
-				const std::vector<std::function<O(I,Funs...)>>& step
-		) {
-			return fun_def<O,I,Funs...>(test, base, step);
-		}
-
-		template<
-			typename O,
-			typename I,
-			typename ... Funs
-		>
-		fun_def<O,I,Funs...> fun_intern(
-				const std::function<bool(I)>& test,
-				const std::function<O(I)>& base,
-				const std::vector<std::function<O(I,Funs...)>>& step
-		) {
-			return fun_intern<O,I,Funs...>(test, toVector(base), step);
-		}
-
-		template<
-			typename O,
-			typename I,
-			typename ... Funs
-		>
-		fun_def<O,I,Funs...> fun_intern(
-				const std::function<bool(I)>& test,
-				const std::function<O(I)>& base,
-				const std::function<O(I,Funs...)>& step
-		) {
-			return fun_intern<O,I,Funs...>(test, base, toVector(step));
-		}
-
 	}
 
-
 	template<
-		typename BT, typename BC, typename SC,
-		typename dummy = typename std::enable_if<
-				!is_vector<BT>::value && !is_vector<BC>::value && !is_vector<SC>::value &&
-				!is_std_function<BT>::value && !is_std_function<BC>::value && !is_std_function<SC>::value
-			,int>::type
+		typename BT, typename First_BC, typename ... BC, typename ... SC,
+		typename O = typename parec::lambda_traits<First_BC>::result_type,
+		typename I = typename parec::lambda_traits<First_BC>::arg1_type
 	>
-	auto fun(const BT& a, const BC& b, const SC& c)->decltype(detail::fun_intern(toFunction(a), toFunction(b), toFunction(c))) {
-		return detail::fun_intern(toFunction(a), toFunction(b), toFunction(c));
+	fun_def<O,I,BT,std::tuple<First_BC,BC...>,std::tuple<SC...>>
+	fun(const BT& a, const std::tuple<First_BC,BC...>& b, const std::tuple<SC...>& c) {
+		return fun_def<O,I,BT,std::tuple<First_BC,BC...>,std::tuple<SC...>>(a,b,c);
 	}
 
 	template<
 		typename BT, typename BC, typename SC,
-		typename dummy = typename std::enable_if<
-				!is_vector<BT>::value && !is_vector<BC>::value &&
-				!is_std_function<BT>::value && !is_std_function<BC>::value
-			,int>::type
+		typename filter = typename std::enable_if<!is_tuple<BC>::value && !is_tuple<SC>::value,int>::type
 	>
-	auto fun(const BT& a, const BC& b, const std::vector<SC>& c)->decltype(detail::fun_intern(toFunction(a), toFunction(b),c)) {
-		return detail::fun_intern(toFunction(a), toFunction(b),c);
+	auto fun(const BT& a, const BC& b, const SC& c) -> decltype(fun(a,std::make_tuple(b),std::make_tuple(c))) {
+		return fun(a,std::make_tuple(b),std::make_tuple(c));
 	}
 
 	template<
 		typename BT, typename BC, typename SC,
-		typename dummy = typename std::enable_if<
-				!is_vector<BT>::value && !is_std_function<BT>::value
-			,int>::type
+		typename filter = typename std::enable_if<!is_tuple<BC>::value && is_tuple<SC>::value,int>::type
 	>
-	auto fun(const BT& a, const std::vector<BC>& b, const std::vector<SC>& c)->decltype(detail::fun_intern(toFunction(a), b,c)) {
-		return detail::fun_intern(toFunction(a), b,c);
+	auto fun(const BT& a, const BC& b, const SC& c) -> decltype(fun(a,std::make_tuple(b),c)) {
+		return fun(a,std::make_tuple(b),c);
+	}
+
+	template<
+		typename BT, typename BC, typename SC,
+		typename filter = typename std::enable_if<is_tuple<BC>::value && !is_tuple<SC>::value,int>::type
+	>
+	auto fun(const BT& a, const BC& b, const SC& c) -> decltype(fun(a,b,std::make_tuple(c))) {
+		return fun(a,b,std::make_tuple(c));
 	}
 
 
 	// --- add pick wrapper support ---
 
 	template<typename F, typename ... Fs>
-	std::vector<std::function<typename detail::fun_type_of<F>::type>> pick(const F& f, const Fs& ... fs) {
-		typedef typename std::function<typename detail::fun_type_of<F>::type> fun_type;
-		return toVector<fun_type>(f,fs...);
+	std::tuple<F,Fs...> pick(const F& f, const Fs& ... fs) {
+		return std::make_tuple(f,fs...);
 	}
 
 
@@ -252,7 +221,7 @@ namespace parec {
 		struct caller<0> {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
 			utils::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return utils::runtime::spawn([=]() { return f(i,parec<0>(d),args...); });
+				return f(i,parec<0>(d),args...);
 			}
 		};
 
@@ -306,13 +275,12 @@ namespace parec {
 
 
 	template<
-		unsigned i, //= 0,  ~~  Defaulted in declaration ~~
+		unsigned i,
 		typename ... Defs,
-		typename I, // = typename type_at<i,type_list<Defs...>>::type::in_type,
-		typename O // = typename type_at<i,type_list<Defs...>>::type::out_type
+		typename I,
+		typename O
 	>
 	std::function<utils::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& defs) {
-		auto x = std::get<i>(defs);
 		return [=](const I& in)->utils::runtime::Future<O> {
 			return defs.template call<i,O,I>(in);
 		};

@@ -21,15 +21,6 @@ namespace parec {
 
 	}
 
-	TEST(RecOps, Functions) {
-		auto inc = toFunction([](int x) { return x + 1; });
-		EXPECT_EQ(3,inc(2));
-
-		struct empty {};
-		auto f = toFunction([](empty) { return 12; });
-		EXPECT_EQ(12, f(empty()));
-	}
-
 	TEST(RecOps, IsFunDef) {
 
 		auto a = [](){return false;};
@@ -53,6 +44,32 @@ namespace parec {
 				[](empty)->bool { return true; },
 				[=](empty)->float { return 0.0; },
 				[](empty, const fun_type&)->float { return 1.0; }
+		);
+
+		EXPECT_TRUE(detail::is_fun_def<decltype(g)>::value);
+	}
+
+	TEST(RecOps, IsFunDefGeneric) {
+
+		auto a = [](){return false;};
+		EXPECT_FALSE(detail::is_fun_def<decltype(a)>::value);
+
+		auto f = fun(
+				[](int)->bool { return true; },
+				[=](int)->float { return 0.0; },
+				[](int, const auto&)->float { return 1.0; }
+		);
+
+		EXPECT_TRUE(detail::is_fun_def<decltype(f)>::value);
+
+		struct empty {};
+
+		EXPECT_FALSE(is_vector<empty>::value);
+
+		auto g = fun(
+				[](empty)->bool { return true; },
+				[=](empty)->float { return 0.0; },
+				[](empty, const auto&)->float { return 1.0; }
 		);
 
 		EXPECT_TRUE(detail::is_fun_def<decltype(g)>::value);
@@ -260,7 +277,7 @@ namespace parec {
 				fun(
 					[](int x) { return x < 2; },
 					[](int x) { return x; },
-					[](int x, const typename prec_fun<int(int)>::type& f)->int {
+					[](int x, const auto& f)->int {
 						auto a = f(x-1);
 						auto b = f(x-2);
 						return a.get() + b.get();
@@ -276,6 +293,40 @@ namespace parec {
 		EXPECT_EQ(46368, pfib(24));
 
 	}
+
+
+//	template<unsigned N>
+//	struct static_fib {
+//		enum { value = static_fib<N-1>::value + static_fib<N-2>::value };
+//	};
+//
+//	template<>
+//	struct static_fib<1> {
+//		enum { value = 1 };
+//	};
+//
+//	template<>
+//	struct static_fib<0> {
+//		enum { value = 0 };
+//	};
+//
+//	int sfib(int x) {
+//		return (x<2) ? x : sfib(x-1) + sfib(x-2);
+//	}
+//
+//	static const int N = 42;
+//
+//	TEST(ScalingTest, StaticFib) {
+//		EXPECT_EQ(267914296, static_fib<N>::value);
+//	}
+//
+//	TEST(ScalingTest, SequentialFib) {
+//		EXPECT_EQ(static_fib<N>::value, sfib(N));
+//	}
+//
+//	TEST(ScalingTest, ParallelFib) {
+//		EXPECT_EQ(static_fib<N>::value, pfib(N));
+//	}
 
 
 } // end namespace parec

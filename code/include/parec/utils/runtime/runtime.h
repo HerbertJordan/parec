@@ -503,27 +503,27 @@ namespace runtime {
 
 	private:
 
-		template<typename Lambda, typename R>
+		template<typename LambdaSeq, typename LambdaPar, typename R>
 		struct runner {
-			Future<R> operator()(Worker& worker, const Lambda& task) {
+			Future<R> operator()(Worker& worker, const LambdaSeq& seq, const LambdaPar& par) {
 
 				// if the queue is full, process task immediately
 				if (worker.queue.full()) {
-					return task();  // run task and be happy
+					return seq();  // run task and be happy
 				}
 
 				// create a schedulable task
 				Promise<R> p;
 				auto res = p.getFuture();
 				Task* t = new Task([=]() mutable {
-					p.set(task());
+					p.set(par());
 				});
 
 				// schedule task
 				bool succ = worker.queue.push_front(t);
 				if (!succ) {
 					delete t;
-					return task();
+					return seq();
 				}
 
 				// return future
@@ -531,13 +531,13 @@ namespace runtime {
 			}
 		};
 
-		template<typename Lambda>
-		struct runner<Lambda,void> {
-			Future<void> operator()(Worker& worker, const Lambda& task) {
+		template<typename LambdaSeq, typename LambdaPar>
+		struct runner<LambdaSeq,LambdaPar,void> {
+			Future<void> operator()(Worker& worker, const LambdaSeq& seq, const LambdaPar& par) {
 
 				// if the queue is full, process task immediately
 				if (worker.queue.full()) {
-					task();			// run task and be happy
+					seq();			// run task and be happy
 					return Future<void>();
 				}
 
@@ -545,7 +545,7 @@ namespace runtime {
 				Promise<void> p;
 				auto res = p.getFuture();
 				Task* t = new Task([=]() mutable {
-					task();
+					par();
 					p.set();
 				});
 
@@ -553,7 +553,7 @@ namespace runtime {
 				bool succ = worker.queue.push_front(t);
 				if (!succ) {
 					delete t;
-					task();
+					seq();
 					return Future<void>();
 				}
 
@@ -565,14 +565,14 @@ namespace runtime {
 
 	public:
 
-		template<typename Lambda, typename R>
-		Future<R> spawn(const Lambda& lambda) {
+		template<typename LambdaSeq, typename LambdaPar, typename R>
+		Future<R> spawn(const LambdaSeq& seq, const LambdaPar& par) {
 
 			// get current worker
 			auto& worker = getCurrentWorker();
 
 			// run task
-			return runner<Lambda,R>()(worker, lambda);
+			return runner<LambdaSeq,LambdaPar,R>()(worker, seq, par);
 		}
 
 	};
@@ -630,13 +630,27 @@ namespace runtime {
 	}
 
 	template<
+		typename LambdaSeq,
+		typename LambdaPar,
+		typename R = typename std::enable_if<
+			std::is_same<
+				typename lambda_traits<LambdaSeq>::result_type,
+				typename lambda_traits<LambdaPar>::result_type
+			>::value,
+			typename lambda_traits<LambdaSeq>::result_type
+		>::type
+	>
+	Future<R> spawn(const LambdaSeq& seq, const LambdaPar& par) {
+		return WorkerPool::getInstance().spawn<LambdaSeq,LambdaPar,R>(seq,par);
+	}
+
+	template<
 		typename Lambda,
 		typename R = typename lambda_traits<Lambda>::result_type
 	>
 	Future<R> spawn(const Lambda& lambda) {
-		return WorkerPool::getInstance().spawn<Lambda,R>(lambda);
+		return spawn(lambda,lambda);		// only one version => use it for seq and parallel case
 	}
-
 
 } // end namespace runtime
 } // end namespace utils

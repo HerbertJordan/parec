@@ -66,6 +66,7 @@ if (CMAKE_COMPILER_IS_GNUCXX)
 	add_definitions( -Wextra )
 	add_definitions( -Werror )
 	add_definitions( -pedantic )
+	add_definitions( -fmax-errors=5 )
 
 	# add flag allowing arbitrary library ordering (not default in newer distributions)
 	set (CMAKE_CXX_FLAGS "-Wl,--no-as-needed ${CMAKE_CXX_FLAGS}")
@@ -77,13 +78,13 @@ if (CMAKE_COMPILER_IS_GNUCXX)
 	set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 
-	# check for -std=c++0x
+	# check for -std=c++14
 	include(CheckCXXCompilerFlag)
-	check_cxx_compiler_flag( -std=c++0x CXX0X_Support )
-	if(CXX0X_Support)
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+	check_cxx_compiler_flag( -std=c++14 CXX14_Support )
+	if(CXX14_Support)
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 	else()
-		message( "WARNING: --std=c++0x not supported by your compiler!" )
+		message( "WARNING: --std=c++14 not supported by your compiler!" )
 	endif()
 
 endif()
