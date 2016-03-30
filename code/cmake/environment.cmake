@@ -55,39 +55,44 @@ find_library(pthread_lib pthread)
 
 # ------------------------------------------------------------- configuration for platforms
 
-# enable C++0x support within gcc (if supported)
-if (CMAKE_COMPILER_IS_GNUCXX)
 
-	# add general flags
-	add_definitions( -fshow-column )
-	add_definitions( -fdiagnostics-show-option )
-	add_definitions( -Wall )
-	add_definitions( -fopenmp )
-	add_definitions( -Wextra )
-	add_definitions( -Werror )
-	add_definitions( -pedantic )
+# add general flags
+add_definitions( -fshow-column )
+add_definitions( -fdiagnostics-show-option )
+add_definitions( -Wall )
+add_definitions( -fopenmp )
+add_definitions( -Wextra )
+add_definitions( -Werror )
+add_definitions( -pedantic )
+
+# add flags for debug mode
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3 -O0")
+
+# add flags for release mode
+set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+
+
+# check for -std=c++14
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag( -std=c++14 CXX14_Support )
+if(CXX14_Support)
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+else()
+	message( "WARNING: --std=c++14 not supported by your compiler!" )
+endif()
+
+# add GCC specific flags
+if (CMAKE_COMPILER_IS_GNUCXX)
+	
+	# limit number of errors
 	add_definitions( -fmax-errors=5 )
 
 	# add flag allowing arbitrary library ordering (not default in newer distributions)
 	set (CMAKE_CXX_FLAGS "-Wl,--no-as-needed ${CMAKE_CXX_FLAGS}")
 
-	# add flags for debug mode
-	set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3 -O0")
-  
-	# add flags for release mode
-	set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-
-
-	# check for -std=c++14
-	include(CheckCXXCompilerFlag)
-	check_cxx_compiler_flag( -std=c++14 CXX14_Support )
-	if(CXX14_Support)
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-	else()
-		message( "WARNING: --std=c++14 not supported by your compiler!" )
-	endif()
-
 endif()
+
+
 
 
 # --------------------------------------------------------- Valgrind / GTest testing suite

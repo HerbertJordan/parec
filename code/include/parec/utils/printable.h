@@ -32,7 +32,7 @@ namespace utils {
 	 * A class forming an interface for printable classes. Implementing this interface allows
 	 * classes to be printed to output streams using a member function.
 	 */
-	struct Printable {
+	class Printable {
 
 		/**
 		 * A method to be implemented by sub-classes allowing instances to be printed to the
@@ -48,7 +48,7 @@ namespace utils {
 	/**
 	 * A base class for all printable objects within a type hierarchy depending on a virtual printTo function.
 	 */
-	struct VirtualPrintable : public Printable {
+	class VirtualPrintable : public Printable {
 
 		/**
 		 * Allow the output operator to access protected members.

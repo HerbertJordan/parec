@@ -217,7 +217,6 @@ namespace parec {
 			 * Support for a print function.
 			 */
 			std::ostream& printTo(std::ostream& out) const {
-				if (!this) return out;
 				if (l) {
 					l->printTo(out);
 					out << ",";
@@ -305,7 +304,7 @@ namespace parec {
 
 		std::ostream& printTo(std::ostream& out) const {
 			out << "{";
-			root->printTo(out);
+			if (root) root->printTo(out);
 			out << "}";
 			return out;
 		}

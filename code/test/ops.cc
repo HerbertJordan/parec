@@ -47,8 +47,8 @@ namespace parec {
 
 		using coord = std::array<int,3>;
 
-		coord a = { 10, 20, 30 };
-		coord b = { 12, 23, 34 };
+		coord a = {{ 10, 20, 30 }};
+		coord b = {{ 12, 23, 34 }};
 
 		std::atomic<int> counter;
 		counter = 0;
