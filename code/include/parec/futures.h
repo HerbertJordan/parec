@@ -13,8 +13,8 @@ namespace parec {
 
 	bool all() { return true; }
 
-	template<typename ... Rest>
-	bool all(utils::runtime::Future<bool>&& a, Rest&& ... rest) {
+	template<template<typename> class Handle, typename ... Rest>
+	bool all(Handle<bool>&& a, Rest&& ... rest) {
 		// TODO: test futures => check them as soon as they are done, not in order
 		// TODO: return future instead of boolean
 		return a.get() && all(std::forward<Rest>(rest)...);
@@ -25,8 +25,8 @@ namespace parec {
 
 	bool any() { return false; }
 
-	template<typename ... Rest>
-	bool any(utils::runtime::Future<bool>&& a, Rest&& ... rest) {
+	template<template<typename> class Handle, typename ... Rest>
+	bool any(Handle<bool>&& a, Rest&& ... rest) {
 		// TODO: test futures => check them as soon as they are done, not in order
 		// TODO: return future instead of boolean
 		return a.get() || any(std::forward<Rest>(rest)...);
@@ -37,8 +37,8 @@ namespace parec {
 
 	void parallel() { }
 
-	template<typename First, typename ... Rest>
-	void parallel(utils::runtime::Future<First>&& f, Rest&& ... rest) {
+	template<template<typename> class Handle, typename First, typename ... Rest>
+	void parallel(Handle<First>&& f, Rest&& ... rest) {
 		f.get();
 		parallel(std::forward<Rest>(rest)...);
 	}

@@ -13,13 +13,6 @@
 
 namespace parec {
 
-	template<typename T> struct prec_fun;
-
-	template<typename O, typename I>
-	struct prec_fun<O(I)> {
-		typedef std::function<utils::runtime::Future<O>(I)> type;
-	};
-
 	namespace detail {
 
 		int rand(int x) {
@@ -118,7 +111,21 @@ namespace parec {
 		) : bc_test(test), base(base), step(step) {}
 
 		template<typename ... Funs>
-		utils::runtime::Future<O> operator()(const I& in, const Funs& ... funs) const {
+		utils::runtime::Immediate<O> sequentialCall(const I& in, const Funs& ... funs) const {
+			// check for the base case
+			if (bc_test(in)) {
+				return utils::runtime::evaluate([&]{ return detail::random_caller<sizeof...(BaseCases)-1>().template callRandom<O>(base, in); });
+			}
+
+			// run sequential step case
+			return utils::runtime::evaluate([&]{
+				return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs.sequential_call()...);
+			});
+		}
+
+
+		template<typename ... Funs>
+		utils::runtime::Future<O> parallelCall(const I& in, const Funs& ... funs) const {
 			// check for the base case
 			const auto& base = this->base;
 			if (bc_test(in)) return utils::runtime::spawn([=] {
@@ -128,8 +135,10 @@ namespace parec {
 			// run step case
 			const auto& step = this->step;
 			return utils::runtime::spawn(
-					// TODO: forward sequential alternative
-					[=]() { return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs...); }
+					// sequential version:
+					[=]() { return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs.sequential_call()...); },
+					// parallel versin:
+					[=]() { return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs.parallel_call()...); }
 			);
 		}
 
@@ -198,30 +207,65 @@ namespace parec {
 
 	template<typename ... Defs> struct rec_defs;
 
-	template<
-		unsigned i = 0,
-		typename ... Defs,
-		typename I = typename type_at<i,type_list<Defs...>>::type::in_type,
-		typename O = typename type_at<i,type_list<Defs...>>::type::out_type
-	>
-	std::function<utils::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& );
-
 
 	namespace detail {
+
+
+		template<
+			unsigned i,
+			typename ... Defs
+		>
+		struct callable {
+
+			using I = typename type_at<i,type_list<Defs...>>::type::in_type;
+			using O = typename type_at<i,type_list<Defs...>>::type::out_type;
+
+			const rec_defs<Defs...>& defs;
+
+			callable(const rec_defs<Defs...>& defs) : defs(defs) {};
+
+			auto sequential_call() const {
+				return [&](const I& in)->utils::runtime::Immediate<O> {
+					return defs.template sequentialCall<i,O,I>(in);
+				};
+			}
+
+			auto parallel_call() const {
+				return [&](const I& in)->utils::runtime::Future<O> {
+					return defs.template parallelCall<i,O,I>(in);
+				};
+			}
+		};
+
+		template<
+			unsigned i,
+			typename ... Defs
+		>
+		callable<i,Defs...> createCallable(const rec_defs<Defs...>& defs) {
+			return callable<i,Defs...>(defs);
+		}
 
 		template<unsigned n>
 		struct caller {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
-			utils::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return caller<n-1>().template call<O>(f,i,d,args...,parec<n>(d));
+			utils::runtime::Immediate<O> sequentialCall(const F& f, const I& i, const D& d, const Args& ... args) const {
+				return caller<n-1>().template sequentialCall<O>(f,i,d,args...,createCallable<n>(d));
+			}
+			template<typename O, typename F, typename I, typename D, typename ... Args>
+			utils::runtime::Future<O> parallelCall(const F& f, const I& i, const D& d, const Args& ... args) const {
+				return caller<n-1>().template parallelCall<O>(f,i,d,args...,createCallable<n>(d));
 			}
 		};
 
 		template<>
 		struct caller<0> {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
-			utils::runtime::Future<O> call(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return f(i,parec<0>(d),args...);
+			utils::runtime::Immediate<O> sequentialCall(const F& f, const I& i, const D& d, const Args& ... args) const {
+				return f.sequentialCall(i,createCallable<0>(d),args...);
+			}
+			template<typename O, typename F, typename I, typename D, typename ... Args>
+			utils::runtime::Future<O> parallelCall(const F& f, const I& i, const D& d, const Args& ... args) const {
+				return f.parallelCall(i,createCallable<0>(d),args...);
 			}
 		};
 
@@ -243,21 +287,34 @@ namespace parec {
 
 	template<typename ... Defs>
 	struct rec_defs : public std::tuple<Defs...> {
+
 		template<typename ... Args>
 		rec_defs(const Args& ... args) : std::tuple<Defs...>(args...) {}
-
 
 		template<
 			unsigned i,
 			typename O,
 			typename I
 		>
-		utils::runtime::Future<O> call(const I& in) const {
+		utils::runtime::Immediate<O> sequentialCall(const I& in) const {
 			// get targeted function
 			auto x = std::get<i>(*this);
 
 			// call target function with an async
-			return detail::caller<sizeof...(Defs)-1>().template call<O>(x,in,*this);
+			return detail::caller<sizeof...(Defs)-1>().template sequentialCall<O>(x,in,*this);
+		}
+
+		template<
+			unsigned i,
+			typename O,
+			typename I
+		>
+		utils::runtime::Future<O> parallelCall(const I& in) const {
+			// get targeted function
+			auto x = std::get<i>(*this);
+
+			// call target function with an async
+			return detail::caller<sizeof...(Defs)-1>().template parallelCall<O>(x,in,*this);
 		}
 
 	};
@@ -275,14 +332,14 @@ namespace parec {
 
 
 	template<
-		unsigned i,
+		unsigned i = 0,
 		typename ... Defs,
-		typename I,
-		typename O
+		typename I = typename type_at<i,type_list<Defs...>>::type::in_type,
+		typename O = typename type_at<i,type_list<Defs...>>::type::out_type
 	>
-	std::function<utils::runtime::Future<O>(I)> parec(const rec_defs<Defs...>& defs) {
+	auto parec(const rec_defs<Defs...>& defs) {
 		return [=](const I& in)->utils::runtime::Future<O> {
-			return defs.template call<i,O,I>(in);
+			return defs.template parallelCall<i,O,I>(in);
 		};
 	}
 

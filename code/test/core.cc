@@ -29,7 +29,7 @@ namespace parec {
 		auto f = fun(
 				[](int)->bool { return true; },
 				[=](int)->float { return 0.0; },
-				[](int, const prec_fun<float(int)>::type&)->float { return 1.0; }
+				[](int, const auto&)->float { return 1.0; }
 		);
 
 		EXPECT_TRUE(detail::is_fun_def<decltype(f)>::value);
@@ -38,12 +38,10 @@ namespace parec {
 
 		EXPECT_FALSE(is_vector<empty>::value);
 
-		typedef const prec_fun<float(empty)>::type& fun_type;
-
 		auto g = fun(
 				[](empty)->bool { return true; },
 				[=](empty)->float { return 0.0; },
-				[](empty, const fun_type&)->float { return 1.0; }
+				[](empty, const auto&)->float { return 1.0; }
 		);
 
 		EXPECT_TRUE(detail::is_fun_def<decltype(g)>::value);
@@ -88,7 +86,7 @@ namespace parec {
 				fun(
 					[](int x)->bool { return x < 2; },
 					[](int x)->int { return x; },
-					[](int x, const typename prec_fun<int(int)>::type& f)->int {
+					[](int x, const auto& f)->int {
 						auto a = f(x-1);
 						auto b = f(x-2);
 						return a.get() + b.get();
@@ -114,7 +112,7 @@ namespace parec {
 		auto fib = prec(
 				[](int x)->bool { return x < 2; },
 				[](int x)->int { return x; },
-				[](int x, const typename prec_fun<int(int)>::type& f)->int {
+				[](int x, const auto& f)->int {
 					auto a = f(x-1);
 					auto b = f(x-2);
 					return a.get() + b.get();
@@ -136,14 +134,12 @@ namespace parec {
 
 	TEST(RecOps, EvenOdd) {
 
-		typedef typename prec_fun<bool(int)>::type test;
-
 		auto def = group(
 				// even
 				fun(
 						[](int x)->bool { return x == 0; },
 						[](int)->bool { return true; },
-						[](int x, const test& , const test& odd)->bool {
+						[](int x, const auto& , const auto& odd)->bool {
 							return odd(x-1).get();
 						}
 				),
@@ -151,7 +147,7 @@ namespace parec {
 				fun(
 						[](int x)->bool { return x == 0; },
 						[](int)->bool { return false; },
-						[](int x, const test& even, const test& )->bool {
+						[](int x, const auto& even, const auto& )->bool {
 							return even(x-1).get();
 						}
 				)
@@ -188,14 +184,12 @@ namespace parec {
 
 	TEST(RecOps, Even) {
 
-		typedef typename prec_fun<bool(int)>::type test;
-
 		auto even = prec(
 				// even
 				fun(
 						[](int x)->bool { return x == 0; },
 						[](int)->bool { return true; },
-						[](int x, const test& , const test& odd)->bool {
+						[](int x, const auto& , const auto& odd)->bool {
 							return odd(x-1).get();
 						}
 				),
@@ -203,7 +197,7 @@ namespace parec {
 				fun(
 						[](int x)->bool { return x == 0; },
 						[](int)->bool { return false; },
-						[](int x, const test& even, const test& )->bool {
+						[](int x, const auto& even, const auto& )->bool {
 							return even(x-1).get();
 						}
 				)
@@ -226,28 +220,26 @@ namespace parec {
 
 
 	int fib(int x) {
-		typedef typename std::function<utils::runtime::Future<int>(int)> fun_type;
 
 		return prec(
 				fun(
 					[](int x) { return x < 2; },
 					[](int x) { return x; },
 					pick(
-							[](int x, const fun_type& f) { return f(x-1).get() + f(x-2).get(); },
-							[](int x, const fun_type& f) { return f(x-2).get() + f(x-1).get(); }
+							[](int x, const auto& f) { return f(x-1).get() + f(x-2).get(); },
+							[](int x, const auto& f) { return f(x-2).get() + f(x-1).get(); }
 					)
 				)
 		)(x).get();
 	}
 
 	int fac(int x) {
-		typedef typename std::function<utils::runtime::Future<int>(int)> fun_type;
 
 		return prec(
 				fun(
 					[](int x) { return x < 2; },
 					[](int) { return 1; },
-					[](int x, const fun_type& f) { return x * f(x-1).get(); }
+					[](int x, const auto& f) { return x * f(x-1).get(); }
 				)
 		)(x).get();
 	}

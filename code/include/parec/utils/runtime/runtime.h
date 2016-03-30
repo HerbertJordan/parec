@@ -28,6 +28,94 @@ namespace runtime {
 
 	static Worker& getCurrentWorker();
 
+	// -----------------------------------------------------------------
+	//						   Immediate
+	// -----------------------------------------------------------------
+
+
+	template<typename T>
+	class Immediate {
+
+		T value;
+
+	public:
+
+		Immediate() {}
+
+		Immediate(const T& value) : value(value) {}
+		Immediate(T&& value) : value(value) {}
+
+		Immediate(const Immediate&) = delete;
+		Immediate(Immediate&& other) = default;
+
+		Immediate& operator=(const Immediate&) = delete;
+		Immediate& operator=(Immediate&& other) = default;
+
+		bool isDone() const {
+			return true;
+		}
+
+		const T& get() const {
+			return value;
+		}
+
+	};
+
+	template<>
+	class Immediate<void> {
+	public:
+
+		Immediate() {}
+
+		Immediate(const Immediate&) = delete;
+		Immediate(Immediate&& other) = default;
+
+		Immediate& operator=(const Immediate&) = delete;
+		Immediate& operator=(Immediate&& other) = default;
+
+		bool isDone() const {
+			return true;
+		}
+
+		void get() const {
+			// nothing
+		}
+
+	};
+
+	namespace detail {
+
+		template<
+			typename Lambda,
+			typename Result
+		>
+		struct evaluator {
+			static Immediate<Result> process(const Lambda& l) {
+				return Immediate<Result>(l());
+			}
+		};
+
+		template<
+			typename Lambda
+		>
+		struct evaluator<Lambda,void> {
+			static Immediate<void> process(const Lambda& l) {
+				l();
+				return Immediate<void>();
+			}
+		};
+	}
+
+
+	template<
+		typename Lambda,
+		typename O = typename lambda_traits<Lambda>::result_type
+	>
+	Immediate<O> evaluate(const Lambda& lambda) {
+		return detail::evaluator<Lambda,O>::process(lambda);
+	}
+
+
 
 	// -----------------------------------------------------------------
 	//						Future / Promise

@@ -109,8 +109,6 @@ namespace parec {
 					: a(a), b(b), l(l), r(r), t(t) { }
 			};
 
-			typedef typename prec_fun<void(const param_type&)>::type solver;
-
 			auto test = [](const param_type& param)->bool {
 				return param.r - param.l < 2;
 			};
@@ -134,7 +132,7 @@ namespace parec {
 			auto def = group(
 					fun(
 						test, base,
-						[](const param_type& param, const solver& up, const solver& down)->void {
+						[](const param_type& param, const auto& up, const auto& down)->void {
 
 							auto l = param.l;
 							auto r = param.r;
@@ -172,7 +170,7 @@ namespace parec {
 					),
 					fun(
 						test, base,
-						[](const param_type& param, const solver& up, const solver& down)->void {
+						[](const param_type& param, const auto& up, const auto& down)->void {
 
 							auto l = param.l;
 							auto r = param.r;

@@ -64,7 +64,7 @@ namespace parec {
 				return prec(
 						[](const node* node)->bool { return !node; },
 						[](const node*)->node* { return nullptr; },
-						[](const node* n, const typename prec_fun<node*(const node*)>::type& f)->node* {
+						[](const node* n, const auto& f)->node* {
 							auto l = f(n->l);
 							auto r = f(n->r);
 							return new node(n->value, l.get(), r.get());
@@ -80,7 +80,7 @@ namespace parec {
 				return prec(
 						[](const node* node)->bool { return !node; },
 						[](const node*)->std::size_t { return 0; },
-						[](const node* n, const typename prec_fun<std::size_t(const node*)>::type& f)->std::size_t {
+						[](const node* n, const auto& f)->std::size_t {
 							auto a = f(n->l);
 							auto b = f(n->r);
 							return 1 + a.get() + b.get();
@@ -96,7 +96,7 @@ namespace parec {
 				return prec(
 						[&](const node* cur)->bool { return !cur || cur->value == value; },
 						[](const node* cur)->bool { return cur; },
-						[&](const node* cur, const typename prec_fun<bool(const node*)>::type& f)->bool {
+						[&](const node* cur, const auto& f)->bool {
 							return (cur->value < value) ? f(cur->r).get() : f(cur->l).get();
 						}
 				)(this).get();
@@ -111,7 +111,7 @@ namespace parec {
 				return prec(
 						[](pair p) { return !p.first || !p.second; },
 						[](pair p) { return !p.second; },
-						[](pair p, const typename prec_fun<bool(pair)>::type& f)->bool {
+						[](pair p, const auto& f)->bool {
 
 							auto x = p.first;
 							auto o = p.second;
@@ -160,11 +160,14 @@ namespace parec {
 				return prec(
 						[](pair cur)->bool { return !cur.first || !cur.second; },
 						[](pair cur)->node* { return (cur.first) ? cur.first : cur.second ; },
-						[](pair cur, const typename prec_fun<node*(pair)>::type& f)->node* {
+						[](pair cur, const auto& f)->node* {
+
+							using value_type = decltype(f(pair()));
+
 							auto x = cur.first;
 							auto o = cur.second;
 
-							utils::runtime::Future<node*> l,r;
+							value_type l,r;
 
 							// if values are equivalent ...
 							if (x->value == o->value) {

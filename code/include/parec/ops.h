@@ -103,7 +103,7 @@ namespace parec {
 				if (detail::area(r) < 1) return;
 				detail::for_each(r,op);
 			},
-			[](const range& r, const typename prec_fun<void(range)>::type& f) {
+			[](const range& r, const auto& f) {
 				// here we have the binary splitting
 
 				// TODO: think about splitting all dimensions
@@ -152,7 +152,7 @@ namespace parec {
 				if (detail::distance(r.first,r.second) < 1) return;
 				for(auto it = r.first; it != r.second; ++it) op(detail::access(it));
 			},
-			[](const range& r, const typename prec_fun<void(range)>::type& f) {
+			[](const range& r, const auto& f) {
 				// here we have the binary splitting
 				auto mid = r.first + (r.second - r.first)/2;
 				auto a = f(range(r.first, mid));
@@ -196,7 +196,7 @@ namespace parec {
 				if (r.first == r.second) return res_type();
 				return op(*r.first,res_type());
 			},
-			[&](const range& r, const typename prec_fun<res_type(range)>::type& f)->res_type {
+			[&](const range& r, const auto& f)->res_type {
 				// here we have the binary splitting
 				auto mid = r.first + (r.second - r.first)/2;
 				auto a = f(range(r.first, mid));
