@@ -287,38 +287,38 @@ namespace parec {
 	}
 
 
-//	template<unsigned N>
-//	struct static_fib {
-//		enum { value = static_fib<N-1>::value + static_fib<N-2>::value };
-//	};
-//
-//	template<>
-//	struct static_fib<1> {
-//		enum { value = 1 };
-//	};
-//
-//	template<>
-//	struct static_fib<0> {
-//		enum { value = 0 };
-//	};
-//
-//	int sfib(int x) {
-//		return (x<2) ? x : sfib(x-1) + sfib(x-2);
-//	}
-//
-//	static const int N = 42;
-//
-//	TEST(ScalingTest, StaticFib) {
-//		EXPECT_EQ(267914296, static_fib<N>::value);
-//	}
-//
-//	TEST(ScalingTest, SequentialFib) {
-//		EXPECT_EQ(static_fib<N>::value, sfib(N));
-//	}
-//
-//	TEST(ScalingTest, ParallelFib) {
-//		EXPECT_EQ(static_fib<N>::value, pfib(N));
-//	}
+	template<unsigned N>
+	struct static_fib {
+		enum { value = static_fib<N-1>::value + static_fib<N-2>::value };
+	};
+
+	template<>
+	struct static_fib<1> {
+		enum { value = 1 };
+	};
+
+	template<>
+	struct static_fib<0> {
+		enum { value = 0 };
+	};
+
+	int sfib(int x) {
+		return (x<2) ? x : sfib(x-1) + sfib(x-2);
+	}
+
+	static const int N = 42;
+
+	TEST(ScalingTest, StaticFib) {
+		EXPECT_EQ(267914296, static_fib<N>::value);
+	}
+
+	TEST(ScalingTest, SequentialFib) {
+		EXPECT_EQ(static_fib<N>::value, sfib(N));
+	}
+
+	TEST(ScalingTest, ParallelFib) {
+		EXPECT_EQ(static_fib<N>::value, pfib(N));
+	}
 
 
 } // end namespace parec
