@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <thread>
 
+#include <pthread.h>
+
 #include "parec/utils/functional_utils.h"
 #include "parec/utils/printer/arrays.h"
 
@@ -460,6 +462,21 @@ namespace runtime {
 
 	};
 
+	namespace detail {
+
+		/**
+		 * A utility to fix the affinity of the current thread to the given core.
+		 */
+		void fixAffinity(int core) {
+			static const int num_cores = std::thread::hardware_concurrency();
+			cpu_set_t mask;
+			CPU_ZERO(&mask);
+			CPU_SET(core % num_cores, &mask);
+			pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &mask);
+		}
+
+	}
+
 	class WorkerPool;
 
 	struct Worker {
@@ -472,10 +489,12 @@ namespace runtime {
 
 		std::thread thread;
 
+		unsigned id;
+
 	public:
 
-		Worker(WorkerPool& pool)
-			: pool(pool), alive(true) { }
+		Worker(WorkerPool& pool, unsigned id)
+			: pool(pool), alive(true), id(id) { }
 
 		Worker(const Worker&) = delete;
 		Worker(Worker&&) = delete;
@@ -498,6 +517,9 @@ namespace runtime {
 	private:
 
 		void run() {
+
+			// fix affinity
+			detail::fixAffinity(id);
 
 			// register worker
 			setCurrentWorker(*this);
@@ -541,13 +563,19 @@ namespace runtime {
 			// must be at least one
 			if (numWorkers < 1) numWorkers = 1;
 
+			// subtract main thread
+			numWorkers = numWorkers - 1;
+
 			// create workers
 			for(int i=0; i<numWorkers; ++i) {
-				workers.push_back(new Worker(*this));
+				workers.push_back(new Worker(*this, i+1));
 			}
 
 			// start workers
 			for(auto& cur : workers) cur->start();
+
+			// fix affinity of main thread
+			detail::fixAffinity(0);
 		}
 
 		~WorkerPool() {
@@ -651,10 +679,31 @@ namespace runtime {
 			}
 		};
 
+		template<typename LambdaSeq, typename R>
+		struct direct_runner {
+			Future<R> operator()(const LambdaSeq& seq) {
+				return seq();
+			}
+		};
+
+		template<typename LambdaSeq>
+		struct direct_runner<LambdaSeq,void> {
+			Future<void> operator()(const LambdaSeq& seq) {
+				seq();
+				return Future<void>();
+			}
+		};
+
 	public:
 
 		template<typename LambdaSeq, typename LambdaPar, typename R>
 		Future<R> spawn(const LambdaSeq& seq, const LambdaPar& par) {
+
+			// check whether there are any workers
+			if (getNumWorkers() == 0) {
+				// process directly
+				return direct_runner<LambdaSeq,R>()(seq);
+			}
 
 			// get current worker
 			auto& worker = getCurrentWorker();
