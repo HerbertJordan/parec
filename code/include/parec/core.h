@@ -137,7 +137,7 @@ namespace parec {
 			return utils::runtime::spawn(
 					// sequential version:
 					[=]() { return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs.sequential_call()...); },
-					// parallel versin:
+					// parallel version:
 					[=]() { return detail::random_caller<sizeof...(StepCases)-1>().template callRandom<O>(step, in, funs.parallel_call()...); }
 			);
 		}
@@ -249,11 +249,11 @@ namespace parec {
 		struct caller {
 			template<typename O, typename F, typename I, typename D, typename ... Args>
 			utils::runtime::Immediate<O> sequentialCall(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return caller<n-1>().template sequentialCall<O>(f,i,d,args...,createCallable<n>(d));
+				return caller<n-1>().template sequentialCall<O>(f,i,d,createCallable<n>(d),args...);
 			}
 			template<typename O, typename F, typename I, typename D, typename ... Args>
 			utils::runtime::Future<O> parallelCall(const F& f, const I& i, const D& d, const Args& ... args) const {
-				return caller<n-1>().template parallelCall<O>(f,i,d,args...,createCallable<n>(d));
+				return caller<n-1>().template parallelCall<O>(f,i,d,createCallable<n>(d),args...);
 			}
 		};
 
@@ -297,11 +297,8 @@ namespace parec {
 			typename I
 		>
 		utils::runtime::Immediate<O> sequentialCall(const I& in) const {
-			// get targeted function
-			auto x = std::get<i>(*this);
-
 			// call target function with an async
-			return detail::caller<sizeof...(Defs)-1>().template sequentialCall<O>(x,in,*this);
+			return detail::caller<sizeof...(Defs)-1>().template sequentialCall<O>(std::get<i>(*this),in,*this);
 		}
 
 		template<
@@ -310,11 +307,8 @@ namespace parec {
 			typename I
 		>
 		utils::runtime::Future<O> parallelCall(const I& in) const {
-			// get targeted function
-			auto x = std::get<i>(*this);
-
 			// call target function with an async
-			return detail::caller<sizeof...(Defs)-1>().template parallelCall<O>(x,in,*this);
+			return detail::caller<sizeof...(Defs)-1>().template parallelCall<O>(std::get<i>(*this),in,*this);
 		}
 
 	};

@@ -132,6 +132,54 @@ namespace parec {
 
 	}
 
+	TEST(RecOps, MultipleRecursion) {
+
+		auto def = group(
+				// function A
+				fun(
+						[](int x)->bool { return x == 0; },
+						[](int)->int { return 1; },
+						[](int, const auto& A, const auto& B, const auto& C)->int {
+							EXPECT_EQ(1,A(0).get());
+							EXPECT_EQ(2,B(0).get());
+							EXPECT_EQ(3,C(0).get());
+							return 1;
+						}
+				),
+				// function B
+				fun(
+						[](int x)->bool { return x == 0; },
+						[](int)->int { return 2; },
+						[](int, const auto& A, const auto& B, const auto& C)->int {
+							EXPECT_EQ(1,A(0).get());
+							EXPECT_EQ(2,B(0).get());
+							EXPECT_EQ(3,C(0).get());
+							return 2;
+						}
+				),
+				// function C
+				fun(
+						[](int x)->bool { return x == 0; },
+						[](int)->int { return 3; },
+						[](int, const auto& A, const auto& B, const auto& C)->int {
+							EXPECT_EQ(1,A(0).get());
+							EXPECT_EQ(2,B(0).get());
+							EXPECT_EQ(3,C(0).get());
+							return 3;
+						}
+				)
+		);
+
+		auto A = parec<0>(def);
+		auto B = parec<1>(def);
+		auto C = parec<2>(def);
+
+		EXPECT_EQ(1,A(1).get());
+		EXPECT_EQ(2,B(1).get());
+		EXPECT_EQ(3,C(1).get());
+	}
+
+
 	TEST(RecOps, EvenOdd) {
 
 		auto def = group(
