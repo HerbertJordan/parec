@@ -179,6 +179,76 @@ namespace parec {
 		EXPECT_EQ(3,C(1).get());
 	}
 
+	TEST(RecOps, MultipleRecursionMultipleTypes) {
+
+		struct A { int x = 0; };
+		struct B { int x = 0; };
+		struct C { int x = 0; };
+		struct D { int x = 0; };
+
+		auto def = group(
+				// function A
+				fun(
+						[](A x)->bool { return x.x==0; },
+						[](A)->int { return 1; },
+						[](A, const auto& a, const auto& b, const auto& c, const auto& d)->int {
+							EXPECT_EQ(1,a(A()).get());
+							EXPECT_EQ(2,b(B()).get());
+							EXPECT_EQ(3,c(C()).get());
+							EXPECT_EQ(4,d(D()).get());
+							return 1;
+						}
+				),
+				// function B
+				fun(
+						[](B x)->bool { return x.x==0; },
+						[](B)->int { return 2; },
+						[](B, const auto& a, const auto& b, const auto& c, const auto& d)->int {
+							EXPECT_EQ(1,a(A()).get());
+							EXPECT_EQ(2,b(B()).get());
+							EXPECT_EQ(3,c(C()).get());
+							EXPECT_EQ(4,d(D()).get());
+							return 2;
+						}
+				),
+				// function C
+				fun(
+						[](C x)->bool { return x.x==0; },
+						[](C)->int { return 3; },
+						[](C, const auto& a, const auto& b, const auto& c, const auto& d)->int {
+							EXPECT_EQ(1,a(A()).get());
+							EXPECT_EQ(2,b(B()).get());
+							EXPECT_EQ(3,c(C()).get());
+							EXPECT_EQ(4,d(D()).get());
+							return 3;
+						}
+				)
+				,
+				// function D
+				fun(
+						[](D x)->bool { return x.x==0; },
+						[](D)->int { return 4; },
+						[](D, const auto& a, const auto& b, const auto& c, const auto& d)->int {
+							EXPECT_EQ(1,a(A()).get());
+							EXPECT_EQ(2,b(B()).get());
+							EXPECT_EQ(3,c(C()).get());
+							EXPECT_EQ(4,d(D()).get());
+							return 4;
+						}
+				)
+		);
+
+		auto a = parec<0>(def);
+		auto b = parec<1>(def);
+		auto c = parec<2>(def);
+		auto d = parec<3>(def);
+
+		EXPECT_EQ(1,a(A({1})).get());
+		EXPECT_EQ(2,b(B({1})).get());
+		EXPECT_EQ(3,c(C({1})).get());
+		EXPECT_EQ(4,d(D({1})).get());
+	}
+
 
 	TEST(RecOps, EvenOdd) {
 
