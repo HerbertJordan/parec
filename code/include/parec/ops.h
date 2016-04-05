@@ -257,17 +257,17 @@ namespace parec {
 	/**
 	 * A parallel for-each implementation iterating over the elements of the given container.
 	 */
-	template<typename Container, typename Op>
+	template<typename policy = loop_policy::binary_split, typename Container, typename Op>
 	void pfor(Container& c, const Op& op) {
-		pfor(c.begin(), c.end(), op);
+		pfor<policy>(c.begin(), c.end(), op);
 	}
 
 	/**
 	 * A parallel for-each implementation iterating over the elements of the given container.
 	 */
-	template<typename Container, typename Op>
+	template<typename policy = loop_policy::binary_split, typename Container, typename Op>
 	void pfor(const Container& c, const Op& op) {
-		pfor(c.begin(), c.end(), op);
+		pfor<policy>(c.begin(), c.end(), op);
 	}
 
 
