@@ -109,6 +109,83 @@ namespace parec {
 
 	}
 
+	TEST(RecOps, PforPolicies1D) {
+
+		const int N = 100;
+
+		std::array<int,N> data;
+
+		// init array
+		pfor(0,N, [&](int i){
+			data[i] = 0;
+		});
+
+		for(int i=0;i<N;i++) {
+			EXPECT_EQ(0,data[i]) << "i=" << i;
+		}
+
+		pfor<loop_policy::binary_split>(0,N, [&](int i){
+			data[i]++;
+		});
+
+		for(int i=0;i<N;i++) {
+			EXPECT_EQ(1,data[i]) << "i=" << i;
+		}
+
+		pfor<loop_policy::queue>(0,N, [&](int i){
+			data[i]++;
+		});
+
+		for(int i=0;i<N;i++) {
+			EXPECT_EQ(2,data[i]) << "i=" << i;
+		}
+	}
+
+	TEST(RecOps, PforPolicies2D) {
+
+		const int N = 100;
+		const int M = 100;
+
+		std::array<std::array<int,M>,N> data;
+
+		using coord = std::array<int,2>;
+
+		coord a = {{ 0, 0 }};
+		coord b = {{ N, M }};
+
+		// init array
+		pfor(a,b, [&](const coord& i){
+			data[i[0]][i[1]] = 0;
+		});
+
+		for(int i=0;i<N;i++) {
+			for(int j=0;j<M;j++) {
+				EXPECT_EQ(0,data[i][j]) << "i=" << i << "\nj=" << j;
+			}
+		}
+
+		pfor<loop_policy::binary_split>(a,b, [&](const coord& i){
+			data[i[0]][i[1]]++;
+		});
+
+		for(int i=0;i<N;i++) {
+			for(int j=0;j<M;j++) {
+				EXPECT_EQ(1,data[i][j]) << "i=" << i << "\nj=" << j;
+			}
+		}
+
+		pfor<loop_policy::queue>(a,b, [&](const coord& i){
+			data[i[0]][i[1]]++;
+		});
+
+		for(int i=0;i<N;i++) {
+			for(int j=0;j<M;j++) {
+				EXPECT_EQ(2,data[i][j]) << "i=" << i << "\nj=" << j;
+			}
+		}
+	}
+
+
 	TEST(RecOps, Reduce) {
 
 		auto plus = [](int a, int b) { return a + b; };
