@@ -430,7 +430,7 @@ namespace parec {
 		);
 
 		EXPECT_EQ(55,sum(10).get());
-		int N = 2068;
+		int N = 2000;
 		sum_seq(N);
 		sum(N).get();
 
