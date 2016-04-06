@@ -418,7 +418,7 @@ namespace parec {
 	}
 
 
-	TEST(RecOps, RecursionDepth) {
+	TEST(DISABLED_RecOps, RecursionDepth) {
 
 
 		auto sum = prec(
@@ -430,7 +430,7 @@ namespace parec {
 		);
 
 		EXPECT_EQ(55,sum(10).get());
-		int N = 2000;
+		int N = 2068;
 		sum_seq(N);
 		sum(N).get();
 
