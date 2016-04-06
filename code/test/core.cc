@@ -181,10 +181,10 @@ namespace parec {
 
 	TEST(RecOps, MultipleRecursionMultipleTypes) {
 
-		struct A { int x = 0; };
-		struct B { int x = 0; };
-		struct C { int x = 0; };
-		struct D { int x = 0; };
+		struct A { int x; A(int x=0):x(x){}; };
+		struct B { int x; B(int x=0):x(x){}; };
+		struct C { int x; C(int x=0):x(x){}; };
+		struct D { int x; D(int x=0):x(x){}; };
 
 		auto def = group(
 				// function A
@@ -243,10 +243,10 @@ namespace parec {
 		auto c = parec<2>(def);
 		auto d = parec<3>(def);
 
-		EXPECT_EQ(1,a(A({1})).get());
-		EXPECT_EQ(2,b(B({1})).get());
-		EXPECT_EQ(3,c(C({1})).get());
-		EXPECT_EQ(4,d(D({1})).get());
+		EXPECT_EQ(1,a(A(1)).get());
+		EXPECT_EQ(2,b(B(1)).get());
+		EXPECT_EQ(3,c(C(1)).get());
+		EXPECT_EQ(4,d(D(1)).get());
 	}
 
 
@@ -401,6 +401,38 @@ namespace parec {
 
 		EXPECT_EQ(6765, pfib(20));
 		EXPECT_EQ(46368, pfib(24));
+
+	}
+
+	// --- check stack memory usage ---
+
+	struct big_params {
+		int a[500];
+		int x;
+		big_params(int x) : x(x) {};
+	};
+
+	int sum_seq(big_params p) {
+		if (p.x == 0) return 0;
+		return sum_seq(p.x-1) + p.x;
+	}
+
+
+	TEST(RecOps, RecursionDepth) {
+
+
+		auto sum = prec(
+				[](big_params p) { return p.x == 0; },
+				[](big_params) { return 0; },
+				[](big_params p, const auto& rec) {
+					return rec(p.x-1).get() + p.x;
+				}
+		);
+
+		EXPECT_EQ(55,sum(10).get());
+		int N = 2068;
+		sum_seq(N);
+		sum(N).get();
 
 	}
 

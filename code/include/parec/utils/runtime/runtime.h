@@ -222,7 +222,7 @@ namespace runtime {
 		}
 
 		bool isDone() const {
-			return link->isDone();
+			return !link || link->isDone();
 		}
 
 		const T& get() const;
