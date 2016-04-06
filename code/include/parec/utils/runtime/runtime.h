@@ -491,10 +491,12 @@ namespace runtime {
 
 		unsigned id;
 
+		unsigned random_seed;
+
 	public:
 
 		Worker(WorkerPool& pool, unsigned id)
-			: pool(pool), alive(true), id(id) { }
+			: pool(pool), alive(true), id(id), random_seed(id) { }
 
 		Worker(const Worker&) = delete;
 		Worker(Worker&&) = delete;
@@ -614,7 +616,8 @@ namespace runtime {
 		}
 
 		Worker& getWorker() {
-			return getWorker(rand() % workers.size());
+			static int counter = 0;
+			return getWorker((++counter) % workers.size());
 		}
 
 	private:
@@ -744,7 +747,7 @@ namespace runtime {
 		if (numWorker <= 1) return;
 
 		// otherwise, steal a task from another worker
-		Worker& other = pool.getWorker(rand() % numWorker);
+		Worker& other = pool.getWorker(rand_r(&random_seed) % numWorker);
 		if (this == &other) {
 			schedule_step();
 			return;
