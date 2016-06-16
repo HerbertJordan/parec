@@ -4,6 +4,7 @@
 #include <string>
 
 #include "parec/core.h"
+#include "parec/ops.h"
 
 namespace parec {
 
@@ -471,5 +472,15 @@ namespace parec {
 		EXPECT_EQ(static_fib<N>::value, pfib(N));
 	}
 
+
+	TEST(DISABLED_WorkerSleepTest, StopAndGo) {
+		// Unfortunately, I don't know a simple, portable way to check the
+		// actual number of workers -- so this one must be inspected manually
+		const int N = 45;
+		EXPECT_EQ(static_fib<N>::value, pfib(N));
+		EXPECT_EQ(static_fib<N>::value, sfib(N));
+		EXPECT_EQ(static_fib<N>::value, pfib(N));
+
+	}
 
 } // end namespace parec

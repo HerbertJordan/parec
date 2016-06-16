@@ -3,6 +3,8 @@
 #include <atomic>
 #include <cstdlib>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include <pthread.h>
 
@@ -518,29 +520,11 @@ namespace runtime {
 
 	private:
 
-		void run() {
-
-			// fix affinity
-			detail::fixAffinity(id);
-
-			// register worker
-			setCurrentWorker(*this);
-
-			// TODO: idle time handling
-
-			// start processing loop
-			while(alive) {
-				// conduct a schedule step
-				schedule_step();
-			}
-
-			// done
-
-		}
+		void run();
 
 	public:
 
-		void schedule_step();
+		bool schedule_step();
 
 	};
 
@@ -551,6 +535,9 @@ namespace runtime {
 
 		std::vector<Worker*> workers;
 
+		// tools for managing idle threads
+		std::mutex m;
+		std::condition_variable cv;
 
 		WorkerPool() {
 
@@ -588,6 +575,9 @@ namespace runtime {
 				cur->poison();
 			}
 
+			// signal new work
+			workAvailable();
+
 			// wait for their death
 			for(auto& cur : workers) {
 				cur->join();
@@ -618,6 +608,20 @@ namespace runtime {
 		Worker& getWorker() {
 			static int counter = 0;
 			return getWorker((++counter) % workers.size());
+		}
+
+	protected:
+
+		friend Worker;
+
+		void waitForWork() {
+			std::unique_lock<std::mutex> lk(m);
+			cv.wait(lk);
+		}
+
+		void workAvailable() {
+			// wake up all workers
+			cv.notify_all();
 		}
 
 	private:
@@ -712,7 +716,13 @@ namespace runtime {
 			auto& worker = getCurrentWorker();
 
 			// run task
-			return runner<LambdaSeq,LambdaPar,R>()(worker, seq, par);
+			auto res = runner<LambdaSeq,LambdaPar,R>()(worker, seq, par);
+
+			// make worker aware of new work
+			workAvailable();
+
+			// return future
+			return res;
 		}
 
 	};
@@ -733,34 +743,74 @@ namespace runtime {
 		}
 	}
 
-	inline void Worker::schedule_step() {
+	inline void Worker::run() {
+
+		// fix affinity
+		detail::fixAffinity(id);
+
+		// register worker
+		setCurrentWorker(*this);
+
+		// TODO: idle time handling
+
+		// start processing loop
+		while(alive) {
+
+			// count number of idle cycles
+			int idle_cycles = 0;
+
+			// conduct a schedule step
+			while (alive && !schedule_step()) {
+				// increment idle counter
+				++idle_cycles;
+
+				// wait a moment
+				cpu_relax();
+
+				// if there was no work for quite some time
+				if (idle_cycles > 1000) {
+
+					// wait for work
+					pool.waitForWork();
+
+					// reset cycle counter
+					idle_cycles = 0;
+
+				}
+			}
+		}
+
+		// done
+
+	}
+
+	inline bool Worker::schedule_step() {
 
 		// process a task from the local queue
 		if (Task* t = queue.pop_back()) {
 			t->operator()();
 			delete t;
-			return;
+			return true;
 		}
 
 		// check that there are other workers
 		int numWorker = pool.getNumWorkers();
-		if (numWorker <= 1) return;
+		if (numWorker <= 1) return false;
 
 		// otherwise, steal a task from another worker
 		Worker& other = pool.getWorker(rand_r(&random_seed) % numWorker);
 		if (this == &other) {
-			schedule_step();
-			return;
+			return schedule_step();
 		}
 
 		if (Task* t = other.queue.pop_front()) {
 			t->operator()();
 			delete t;
-			return;
+			return true;
 		}
 
 		// no task found => wait a moment
-		cpu_relax();
+		return false;
 	}
 
 
