@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <thread>
 #include <mutex>
+#include <vector>
 #include <condition_variable>
 
 #include <pthread.h>
