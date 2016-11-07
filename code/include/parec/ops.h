@@ -39,7 +39,7 @@ namespace parec {
 			return a;
 		}
 
-
+		// TODO consider renaming this function to hypervolume
 		template<typename Iter, size_t dims>
 		size_t area(const std::array<std::pair<Iter,Iter>,dims>& range) {
 			size_t res = 1;
@@ -97,7 +97,7 @@ namespace parec {
 			template<typename Iter, typename Op>
 			void operator()(Iter a, Iter b, const Op& op) {
 				// implements a binary splitting policy for iterating over the given iterator range
-				auto cut = detail::distance(a,b) / 1000;
+				auto cut = detail::distance(a,b) / 1000; // hardcoded cutoff, to be removed when runtime is smart enough to find good value
 				cut = (cut < 1) ? 1 : cut;
 				typedef std::pair<Iter,Iter> range;
 				prec(
