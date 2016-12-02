@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 #include "parec/ops.h"
 
 namespace parec {
@@ -195,6 +197,73 @@ namespace parec {
 
 		std::vector<int> e = { };
 		EXPECT_EQ(0, preduce(e, plus));
+	}
+
+	TEST(RecOps, MapReduce) {
+		const int N = 10;
+
+		std::vector<int> data;
+		for(int i = 0; i<N; i++) {
+			data.push_back(1);
+		}
+
+		auto map = [](int i, int& s) { s += i + 1; };
+		auto reduce = [](int a, int b) { return a + b; };
+		auto init = []() { return 0; };
+		auto exit = [](int i) { return i; };
+
+		auto res = map_reduce(data, map, reduce, init, exit);
+
+		EXPECT_EQ(N*2,res);
+
+	}
+
+
+	TEST(RecOps, MapReduce_DataFilter) {
+		const int N = 1000000;
+
+		std::vector<int> data;
+		for(int i = 0; i<N; i++) {
+			data.push_back(i);
+		}
+
+		struct Result {
+			std::vector<int> even;
+			std::vector<int> odd;
+		};
+
+		auto map = [](int i, Result& r) {
+			if (i % 2 == 0) r.even.push_back(i);
+			else            r.odd.push_back(i);
+		};
+
+
+		// merging of results
+		auto reduce = [](Result&& a, Result&& b) {
+
+			std::vector<int> even(std::move(a.even));
+			even.insert(even.end(),b.even.begin(),b.even.end());
+
+			std::vector<int> odd(std::move(a.odd));
+			odd.insert(odd.end(),b.odd.begin(),b.odd.end());
+
+			return Result{even,odd};
+		};
+
+		auto init = []() { return Result(); };
+		auto exit = [](Result r) { return r; };
+
+		auto res = map_reduce(data, map, reduce, init, exit);
+
+
+		std::sort(res.even.begin(),res.even.end());
+		std::sort(res.odd.begin(),res.odd.end());
+
+		for(int i=0; i<N/2; ++i) {
+			EXPECT_EQ(2*i,res.even[i]);
+			EXPECT_EQ(2*i+1,res.odd[i]);
+		}
+
 	}
 
 

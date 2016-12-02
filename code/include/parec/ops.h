@@ -316,4 +316,59 @@ namespace parec {
 		return preduce(c.begin(), c.end(), op);
 	}
 
+
+	// ----- map / reduce ------
+
+	template<
+		typename Container,
+		typename MapOp,
+		typename ReduceOp,
+		typename InitLocalState,
+		typename ReduceLocalState
+	>
+	typename lambda_traits<ReduceOp>::result_type
+	map_reduce(
+			const Container& c,
+			const MapOp& map,
+			const ReduceOp& reduce,
+			const InitLocalState& init,
+			const ReduceLocalState& exit
+		) {
+
+		using Iter = typename Container::const_iterator;
+		using res_type = typename lambda_traits<ReduceOp>::result_type;
+
+		typedef std::pair<Iter,Iter> range;
+		auto full = range(c.begin(),c.end());
+
+		unsigned cut = detail::distance(full.first,full.second) / 1000;
+		cut = (cut < 1) ? 1 : cut;
+
+		// implements a binary splitting policy for iterating over the given iterator range
+		return prec(
+			[&](const range& r) {
+				return std::distance(r.first,r.second) <= cut;
+			},
+			[&](const range& r)->res_type {
+				auto res = init();
+				for(auto it = r.first; it != r.second; ++it) {
+					map(*it,res);
+				}
+				return exit(res);
+			},
+			[&](const range& r, const auto& f)->res_type {
+				// here we have the binary splitting
+				auto mid = r.first + (r.second - r.first)/2;
+				auto a = f(range(r.first, mid));
+				auto b = f(range(mid, r.second));
+				return reduce(std::move(a.extract()), std::move(b.extract()));
+			}
+		)(full).get();
+
+
+		return typename lambda_traits<ReduceOp>::result_type();
+
+	}
+
 } // end namespace parec
+

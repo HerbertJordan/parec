@@ -64,6 +64,9 @@ namespace runtime {
 			return value;
 		}
 
+		T&& extract() {
+			return std::move(value);
+		}
 	};
 
 	template<>
@@ -230,6 +233,7 @@ namespace runtime {
 
 		const T& get() const;
 
+		T&& extract();
 	};
 
 
@@ -735,6 +739,15 @@ namespace runtime {
 			getCurrentWorker().schedule_step();
 		}
 		return link->getValue();
+	}
+
+	template<typename T>
+	T&& Future<T>::extract() {
+		while (!isDone()) {
+			// process another task
+			getCurrentWorker().schedule_step();
+		}
+		return std::move(const_cast<T&>(link->getValue()));
 	}
 
 	void Future<void>::get() const {
