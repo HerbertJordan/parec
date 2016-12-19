@@ -176,6 +176,7 @@ namespace parec {
 
 		};
 
+
 		/**
 		 * In the queued policy, the handed in tasks are placed in a queue and distributed among
 		 * the available threads in a work-dispatcher style of parallelism.
@@ -262,14 +263,6 @@ namespace parec {
 		pfor<policy>(c.begin(), c.end(), op);
 	}
 
-	/**
-	 * A parallel for-each implementation iterating over the elements of the given container.
-	 */
-	template<typename policy = loop_policy::binary_split, typename Container, typename Op>
-	void pfor(const Container& c, const Op& op) {
-		pfor<policy>(c.begin(), c.end(), op);
-	}
-
 
 	// ----- reduction ------
 
@@ -319,8 +312,9 @@ namespace parec {
 
 	// ----- map / reduce ------
 
+
 	template<
-		typename Container,
+		typename Iter, size_t dims,
 		typename MapOp,
 		typename ReduceOp,
 		typename InitLocalState,
@@ -328,23 +322,104 @@ namespace parec {
 	>
 	typename lambda_traits<ReduceOp>::result_type
 	map_reduce(
-			const Container& c,
+			const std::array<Iter,dims>& a,
+			const std::array<Iter,dims>& b,
 			const MapOp& map,
 			const ReduceOp& reduce,
 			const InitLocalState& init,
-			const ReduceLocalState& exit
-		) {
+			const ReduceLocalState& exit = [](typename lambda_traits<ReduceOp>::result_type r) { return r; } -> lambda_traits<ReduceOp>::result_type
+			) {
 
-		using Iter = typename Container::const_iterator;
 		using res_type = typename lambda_traits<ReduceOp>::result_type;
 
-		typedef std::pair<Iter,Iter> range;
-		auto full = range(c.begin(),c.end());
+		using range = std::array<std::pair<Iter,Iter>,dims>;
+		range full;
+		for(size_t i = 0; i<dims; i++) {
+			full[i] = std::make_pair(a[i],b[i]);
+		}
+
+		auto cut = detail::area(full) / 1000;
+		cut = (cut < 1) ? 1 : cut;
+
+		return prec(
+			[&](const range& r) {
+			return detail::area(r) <= cut;
+			},
+			[&](const range& r)->res_type {
+				auto res = init();
+				if (detail::area(r) < 1) return res;
+
+				auto mapB = [map,&res](const std::array<Iter,dims>& cur) {
+					return map(cur,res);
+				};
+
+				detail::for_each(r,mapB);
+
+				return exit(res);
+			},
+			[&](const range& r, const auto& f)->res_type {
+				// here we have the binary splitting
+
+				// TODO: think about splitting all dimensions
+
+				// get the longest dimension
+				size_t maxDim = 0;
+				size_t maxDist = detail::distance(r[0]);
+				for(size_t i = 1; i<dims;++i) {
+					size_t curDist = detail::distance(r[i]);
+					if (curDist > maxDist) {
+						maxDim = i;
+						maxDist = curDist;
+					}
+				}
+
+				// split the longest dimension
+				range a = r;
+				range b = r;
+
+				auto mid = r[maxDim].first + (maxDist / 2);
+				a[maxDim].second = mid;
+				b[maxDim].first = mid;
+
+				// process branches
+				auto x = f(a);
+				auto y = f(b);
+				x.get(); y.get();		// sync futures (also automated by destructor)
+
+				return reduce(std::move(x.extract()), std::move(y.extract()));
+			}
+		)(full).get();
+
+		return res_type();
+
+	}
+
+
+	template<
+		typename Iter,
+		typename MapOp,
+		typename ReduceOp,
+		typename InitLocalState,
+		typename ReduceLocalState
+	>
+	typename lambda_traits<ReduceOp>::result_type
+	map_reduce(
+			const Iter& a,
+			const Iter& b,
+			const MapOp& map,
+			const ReduceOp& reduce,
+			const InitLocalState& init,
+			const ReduceLocalState& exit = [](typename lambda_traits<ReduceOp>::result_type r) { return r; } -> lambda_traits<ReduceOp>::result_type
+		) {
+
+		using res_type = typename lambda_traits<ReduceOp>::result_type;
+
+		typedef std::pair<Iter, Iter> range;
+		auto full = range(a, b);
 
 		unsigned cut = detail::distance(full.first,full.second) / 1000;
 		cut = (cut < 1) ? 1 : cut;
 
-		// implements a binary splitting policy for iterating over the given iterator range
 		return prec(
 			[&](const range& r) {
 				return std::distance(r.first,r.second) <= cut;
@@ -367,6 +442,26 @@ namespace parec {
 
 
 		return typename lambda_traits<ReduceOp>::result_type();
+
+	}
+
+	template<
+		typename Container,
+		typename MapOp,
+		typename ReduceOp,
+		typename InitLocalState,
+		typename ReduceLocalState
+	>
+	typename lambda_traits<ReduceOp>::result_type
+	map_reduce(
+			const Container& c,
+			const MapOp& map,
+			const ReduceOp& reduce,
+			const InitLocalState& init,
+			const ReduceLocalState& exit = [](Container r) { return r; } -> Container
+		) {
+
+		return map_reduce(c.begin(), c.end(), map, reduce, init, exit);
 
 	}
 

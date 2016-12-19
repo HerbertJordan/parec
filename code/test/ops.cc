@@ -218,6 +218,49 @@ namespace parec {
 
 	}
 
+	TEST(RecOps, MapReduce_Iterator) {
+		const int N = 10;
+
+		std::vector<int> data;
+		for(int i = 0; i<N; i++) {
+			data.push_back(1);
+		}
+
+		auto map = [](int i, int& s) { s += i + 1; };
+		auto reduce = [](int a, int b) { return a + b; };
+		auto init = []() { return 0; };
+		auto exit = [](int i) { return i; };
+
+		auto res = map_reduce(data.begin(), data.end(), map, reduce, init, exit);
+
+		EXPECT_EQ(N*2,res);
+
+	}
+
+	TEST(RecOps, MapReduce_2D) {
+		const int N = 10;
+
+		std::array<int,2> start({0,0});
+		std::array<int,2> end({N,N});
+
+		std::vector<int> data;
+		for(int i = 0; i<N; i++) {
+			for(int i = 0; i<N; i++) {
+				data.push_back(1);
+			}
+		}
+
+		auto map = [data](std::array<int,2> i, int& s) { s += data[i[0]*10 + i[1]]; };
+		auto reduce = [](int a, int b) { return a + b; };
+		auto init = []() { return 0; };
+		auto exit = [](int i) { return i; };
+
+		auto res = map_reduce(start, end, map, reduce, init, exit);
+
+		EXPECT_EQ(N*N,res);
+
+	}
+
 
 	TEST(RecOps, MapReduce_DataFilter) {
 		const int N = 1000000;
