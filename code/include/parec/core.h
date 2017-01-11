@@ -15,7 +15,7 @@ namespace parec {
 
 	namespace detail {
 
-		int rand(int x) {
+		inline int rand(int x) {
 			return (std::rand()/(float)RAND_MAX) * x;
 		}
 

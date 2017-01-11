@@ -21,7 +21,7 @@ namespace parec {
 			return std::distance(a,b);
 		}
 
-		size_t distance(int a, int b) {
+		inline size_t distance(int a, int b) {
 			return b-a;
 		}
 
@@ -35,7 +35,7 @@ namespace parec {
 			return *iter;
 		}
 
-		int access(int a) {
+		inline int access(int a) {
 			return a;
 		}
 

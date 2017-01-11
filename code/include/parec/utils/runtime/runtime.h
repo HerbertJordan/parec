@@ -231,7 +231,7 @@ namespace runtime {
 			return !link || link->isDone();
 		}
 
-		const T& get() const;
+		inline const T& get() const;
 
 		T&& extract();
 	};
@@ -474,7 +474,7 @@ namespace runtime {
 		/**
 		 * A utility to fix the affinity of the current thread to the given core.
 		 */
-		void fixAffinity(int core) {
+		inline void fixAffinity(int core) {
 			static const int num_cores = std::thread::hardware_concurrency();
 			cpu_set_t mask;
 			CPU_ZERO(&mask);
@@ -750,7 +750,7 @@ namespace runtime {
 		return std::move(const_cast<T&>(link->getValue()));
 	}
 
-	void Future<void>::get() const {
+	inline void Future<void>::get() const {
 		while (!isDone()) {
 			// process another task
 			getCurrentWorker().schedule_step();

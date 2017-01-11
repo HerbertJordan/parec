@@ -11,7 +11,7 @@ namespace parec {
 
 	// ----- an all operator ----
 
-	bool all() { return true; }
+	inline bool all() { return true; }
 
 	template<template<typename> class Handle, typename ... Rest>
 	bool all(Handle<bool>&& a, Rest&& ... rest) {
@@ -23,7 +23,7 @@ namespace parec {
 
 	// ----- an any operator ----
 
-	bool any() { return false; }
+	inline bool any() { return false; }
 
 	template<template<typename> class Handle, typename ... Rest>
 	bool any(Handle<bool>&& a, Rest&& ... rest) {
@@ -35,7 +35,7 @@ namespace parec {
 
 	// ---- a parallel operator ----
 
-	void parallel() { }
+	inline void parallel() { }
 
 	template<template<typename> class Handle, typename First, typename ... Rest>
 	void parallel(Handle<First>&& f, Rest&& ... rest) {
